@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">
+  <rect width="400" height="300" fill="#f3eefb"/>
+  <path d="M200 110 C170 75 150 105 200 113 C250 105 230 75 200 110 Z" fill="#d8b8f0"/>
+  <rect x="140" y="140" width="120" height="90" rx="6" fill="#c9a7e8"/>
+  <rect x="132" y="118" width="136" height="28" rx="6" fill="#b78fe0"/>
+  <rect x="188" y="118" width="24" height="112" fill="#f7d08a"/>
+  <text x="200" y="270" font-family="Poppins,Arial" font-size="16" fill="#8a7aa8" text-anchor="middle">No image yet</text>
+</svg>

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Deshna's Delights — Handpicked Gifts</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <!-- Header -->
+  <header class="site-header">
+    <div class="container nav">
+      <a class="brand" href="index.html">
+        <span class="logo">D</span>
+        <span class="brand-text">
+          <b>Deshna's Delights</b>
+          <span>HANDPICKED GIFTS</span>
+        </span>
+      </a>
+      <nav class="nav-links">
+        <a href="#gifts">Gifts</a>
+        <a href="#why" class="hide-sm">Why us</a>
+        <a href="#about" class="hide-sm">About</a>
+        <a class="btn small" href="admin.html">+ Add a Gift</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="container hero-grid">
+      <div>
+        <h1>Little gifts, <span class="accent">big smiles</span> ✨</h1>
+        <p>Welcome to Deshna's Delights — a cosy corner of handpicked gifts, made and chosen with love. Find something special for someone special.</p>
+        <div class="hero-actions">
+          <a class="btn" href="#gifts">Browse Gifts</a>
+          <a class="btn ghost" href="admin.html">Add Your Own</a>
+        </div>
+      </div>
+      <div class="hero-art">
+        <div class="big-gift floaty">🎁</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Gifts -->
+  <section class="section" id="gifts">
+    <div class="container">
+      <div class="section-head">
+        <h2>Our Gift Collection</h2>
+        <p>Tap any gift to see more. Prices shown are just for this prototype.</p>
+      </div>
+      <div class="filters" id="filters"></div>
+      <div class="grid" id="giftGrid"></div>
+    </div>
+  </section>
+
+  <!-- Why us -->
+  <section class="section" id="why" style="background:var(--blush)">
+    <div class="container">
+      <div class="section-head">
+        <h2>Why Deshna's Delights?</h2>
+        <p>Made by a student, for people who love thoughtful things.</p>
+      </div>
+      <div class="features">
+        <div class="feature"><div class="ico">💝</div><h3>Handpicked</h3><p>Every gift is chosen or made with care and a little bit of magic.</p></div>
+        <div class="feature"><div class="ico">🎀</div><h3>Cute Wrapping</h3><p>Each order comes beautifully wrapped, ready to gift.</p></div>
+        <div class="feature"><div class="ico">🌱</div><h3>Made Local</h3><p>Supporting small, homemade and student-made creations.</p></div>
+        <div class="feature"><div class="ico">😊</div><h3>Made to Smile</h3><p>Our only goal — to put a smile on someone's face.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- About -->
+  <section class="section" id="about">
+    <div class="container hero-grid">
+      <div class="hero-art" style="background:linear-gradient(135deg,#fff,#efe2fb)">
+        <div class="big-gift floaty">🌸</div>
+      </div>
+      <div>
+        <h2>Hi, I'm Deshna 👋</h2>
+        <p style="color:var(--muted);font-size:17px;margin:14px 0">
+          I'm a secondary school student who loves art, cute things, and making
+          people happy. Deshna's Delights started as a little project to share
+          the gifts I adore. This site is a prototype — no real payments yet,
+          just a peek into my dream gift shop!
+        </p>
+        <a class="btn" href="#gifts">See my gifts</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Modal -->
+  <div class="modal-overlay" id="modal">
+    <div class="modal" id="modalCard" style="position:relative">
+      <button class="modal-close" id="modalClose">&times;</button>
+      <div class="modal-img"><img id="mImg" src="" alt="" /></div>
+      <div class="modal-info">
+        <span class="card-cat" id="mCat"></span>
+        <h3 class="card-title" id="mTitle"></h3>
+        <p class="card-desc" id="mDesc"></p>
+        <div class="card-badges" id="mBadges" style="position:static;margin:14px 0"></div>
+        <div class="card-foot">
+          <span class="price" id="mPrice"></span>
+          <button class="btn small" onclick="alert('This is a prototype — no checkout yet! 🎁')">Gift this</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container footer-grid">
+      <div>
+        <h4>Deshna's Delights</h4>
+        <p>Handpicked gifts, wrapped with love. A student-made prototype gift shop. 🎁</p>
+      </div>
+      <div>
+        <h4>Explore</h4>
+        <a href="#gifts">Gifts</a>
+        <a href="#about">About</a>
+        <a href="admin.html">Add a Gift</a>
+      </div>
+      <div>
+        <h4>Say hi</h4>
+        <a href="mailto:hello@deshnasdelights.example">hello@deshnasdelights.example</a>
+        <p>Made with 💜 by Deshna</p>
+      </div>
+    </div>
+    <div class="container footer-bottom">
+      © <span id="year"></span> Deshna's Delights · Prototype only, no real purchases.
+    </div>
+  </footer>
+
+  <script src="js/main.js"></script>
+</body>
+</html>
