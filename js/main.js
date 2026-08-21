@@ -109,6 +109,16 @@ function openModal(g) {
   document.getElementById("mPrice").textContent =
     CURRENCY + Number(g.price || 0).toLocaleString("en-IN");
   document.getElementById("mBadges").innerHTML = badgeHtml(g.tags);
+
+  // Pre-fill an email to Deshna about this specific gift.
+  const priceText = CURRENCY + Number(g.price || 0).toLocaleString("en-IN");
+  const subject = encodeURIComponent(`Gift enquiry: ${g.name}`);
+  const body = encodeURIComponent(
+    `Hi Deshna,\n\nI'd love to buy "${g.name}" (${priceText}) from Deshna's Delights.\n\nPlease let me know how to proceed.\n\nThank you!`
+  );
+  document.getElementById("mBuy").href =
+    `mailto:deshnajacob@gmail.com?subject=${subject}&body=${body}`;
+
   document.getElementById("modal").classList.add("open");
 }
 
