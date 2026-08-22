@@ -1,7 +1,8 @@
 # Friends Trading Centre 🧸
 
-A simple, attractive **static website for trading toys with friends** using virtual
-coins — no real money, no database, no backend. Just HTML, CSS and JavaScript.
+A simple, attractive **website for trading toys with friends** using virtual coins —
+no real money. Plain HTML, CSS and JavaScript, with a free Firebase Firestore database
+so everyone shares the same toys and coins from **any computer**.
 
 The idea: give away toys you're bored with, and get "new" toys from your friends.
 You buy and sell with virtual coins on the site; the actual toys are handed over
@@ -20,6 +21,7 @@ You buy and sell with virtual coins on the site; the actual toys are handed over
 - 📜 **History page** — bought, sold, your asks, and a coin summary
 - 👑 **Admin dashboard** (for Deshna) — accept/decline sign-ups, see all friends, top up/take coins,
   **set everyone back to 🪙 50** with one button, view all toys & trades, reset everything
+- ☁️ **Works on any computer** — shared cloud database, updates live for everyone
 - 🤝 Toys delivered in person — only the coins are tracked online
 
 ### The Trading Board 🔄
@@ -58,41 +60,68 @@ myshop/
 ├── history.html    ← Your bought & sold history, send coins, your asks
 ├── admin.html      ← Admin dashboard (only shows for "deshna")
 ├── css/style.css   ← All the styling
+├── firestore.rules ← Database rules to paste into the Firebase console
 ├── js/
-│   ├── store.js    ← Data + accounts + coins (the "database")
+│   ├── firebase-config.js  ← YOUR Firebase project settings (paste them here)
+│   ├── store.js    ← Cloud data + accounts + coins (the database layer)
 │   └── app.js      ← Page logic
 └── images/
     └── placeholder.svg  ← Shown when a toy has no photo
 ```
 
-## Important: where the data lives
+## Where the data lives
 
-Because this is a **fully static** site (no server), all accounts, coins and toys
-are stored in the browser's `localStorage` — meaning **on this one device only**.
+Accounts, toys, coins, swaps and trades all live in a **Firebase Firestore** database
+in the cloud, so **every friend sees the same thing from any computer or phone**.
+Changes appear live — when a friend lists a toy or accepts a swap, everyone else's page
+updates by itself, no refresh needed.
 
-That makes it perfect for a group of friends who **share one computer** (say, Deshna's
-laptop): each friend logs in with their own name + PIN, trades, then logs out.
-Data does **not** sync across different phones or laptops — that would need a real
-server, which is beyond this prototype.
+The only thing stored on your own device is *which friend is logged in on this browser*.
 
-> The PIN is a simple prototype login, not real security. Don't reuse a PIN you use
-> anywhere important.
+Photos are shrunk in the browser and saved inside the toy's database record, so there's
+nothing else to set up and no paid Firebase Storage needed.
+
+> ⚠️ The PIN is a simple prototype login, not real security. It is stored in the database
+> and checked in the browser, so a technical person could read it. Use a throwaway
+> 4-digit PIN and never one you use anywhere important.
+
+## Setting up your Firebase database (do this once)
+
+1. Go to [console.firebase.google.com](https://console.firebase.google.com) and
+   **Add project** (any name, e.g. `friends-trading-centre`). Google Analytics is
+   not needed. The free **Spark** plan is plenty — no card required.
+2. In the left menu pick **Build → Firestore Database → Create database**.
+   Choose a location near you and start in **production mode** (the rules come next).
+3. Open the **Rules** tab, replace everything with the contents of
+   [`firestore.rules`](firestore.rules) from this repo, and press **Publish**.
+   (Read the warning at the top of that file first.)
+4. Back on the project overview, click the **web icon `</>`** to register a web app.
+   Give it a nickname, skip Hosting, and copy the `firebaseConfig` object it shows you.
+5. Paste those values into [`js/firebase-config.js`](js/firebase-config.js), replacing
+   every `PASTE_...` placeholder.
+6. Push to GitHub. The site redeploys to GitHub Pages and works from any computer.
+
+If you skip this, the site opens with a friendly "Almost there!" message instead of
+crashing. **Deshna's admin account (PIN `8351`) is created automatically** the first
+time anyone opens the site.
 
 ## How to run it
 
-The pages load data with JavaScript, so open the site through a small local server
+The pages use JavaScript modules, so open the site through a small local server
 rather than double-clicking the HTML file.
 
 - **VS Code (easiest):** install the **Live Server** extension, right-click
   `index.html` → **Open with Live Server**.
 - **Python:** `python -m http.server 8000` then visit http://localhost:8000
+- **Live site:** pushing to `main` deploys to GitHub Pages automatically.
 
 ## How to play
 
 1. **Register** on the home page (name + 4-digit PIN), then ask Deshna to accept you
    from the 👑 **Admin** page — after that you can log in with 🪙 50.
 2. Go to **My Toys** and list a toy you're bored with (add a photo + price).
-3. Have your friends register (and get accepted) and list their toys too (same device).
+3. Have your friends register (and get accepted) and list their toys too —
+   from their own computers or phones.
 4. Open the **Marketplace** to see friends' toys and **Buy** the ones you like —
    or use the **Trading Board** to swap one of your toys for one of theirs.
 5. Check **History** to see your trades and coin balance.

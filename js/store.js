@@ -1,134 +1,195 @@
 /* ============================================================
    Friends Trading Centre — shared data & auth layer
-   All data lives in this browser's localStorage (no server).
-   Friends share one device and each log in with their 4-digit PIN.
+   ------------------------------------------------------------
+   Everything lives in a Firebase Firestore database in the cloud,
+   so every friend sees the same accounts, toys and coins from
+   ANY computer or phone.
+
+   How it works:
+     • startStore() switches on live listeners and fills a local
+       cache, so all the get* functions below stay instant.
+     • Anything that CHANGES data is async — always `await` it.
+     • When another computer changes something, the listener fires
+       and the page redraws itself. No refresh button needed.
+
+   Only the "who is logged in on this device" session stays local.
    ============================================================ */
 
-const SITE_NAME = "Friends Trading Centre";
-const COIN = "🪙";
-const START_BALANCE = 50;
-const ADMIN_NAME = "deshna"; // this friend gets the admin dashboard
-const ADMIN_DISPLAY_NAME = "Deshna";
-const ADMIN_PIN = "8351";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getFirestore,
+  collection,
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  deleteDoc,
+  getDocs,
+  onSnapshot,
+  runTransaction,
+  writeBatch,
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { firebaseConfig, CONFIG_OK } from "./firebase-config.js";
 
-const KEYS = {
-  users: "dtt_users",
-  items: "dtt_items",
-  txns: "dtt_txns",
-  requests: "dtt_requests",
-  swaps: "dtt_swaps",
-  transfers: "dtt_transfers",
-  session: "dtt_session",
-};
+export { CONFIG_OK };
 
-function isAdmin(user) {
+export const SITE_NAME = "Friends Trading Centre";
+export const COIN = "🪙";
+export const START_BALANCE = 50;
+export const ADMIN_NAME = "deshna"; // this friend gets the admin dashboard
+export const ADMIN_DISPLAY_NAME = "Deshna";
+export const ADMIN_PIN = "8351";
+
+// The only thing still kept per-device: who is logged in here.
+const SESSION_KEY = "ftc_session";
+
+const COLLECTIONS = ["users", "items", "requests", "swaps", "txns", "transfers"];
+
+let db = null;
+const _cache = { users: [], items: [], requests: [], swaps: [], txns: [], transfers: [] };
+
+export function isAdmin(user) {
   return !!user && user.username.toLowerCase() === ADMIN_NAME;
 }
 
-/* ---------- low-level storage ---------- */
-function _load(key, fallback) {
-  try {
-    const v = JSON.parse(localStorage.getItem(key));
-    return v == null ? fallback : v;
-  } catch {
-    return fallback;
-  }
+/* ---------- connecting ---------- */
+// Call this once per page before drawing anything.
+// onChange() runs whenever ANY friend, on any computer, changes something.
+let _live = false;
+export async function startStore(onChange) {
+  if (!CONFIG_OK) throw new Error("Firebase is not set up yet — see js/firebase-config.js");
+  if (!db) db = getFirestore(initializeApp(firebaseConfig));
+
+  await Promise.all(
+    COLLECTIONS.map(
+      (name) =>
+        new Promise((resolve, reject) => {
+          let first = true;
+          onSnapshot(
+            collection(db, name),
+            (snap) => {
+              _cache[name] = snap.docs.map((d) => ({ ...d.data(), id: d.id }));
+              if (first) {
+                first = false;
+                resolve();
+              } else if (_live && onChange) {
+                onChange();
+              }
+            },
+            (err) => (first ? reject(err) : console.error(name, err))
+          );
+        })
+    )
+  );
+
+  await _seedAdmin();
+  _live = true;
 }
-function _save(key, val) {
-  localStorage.setItem(key, JSON.stringify(val));
+
+function _col(name) {
+  return collection(db, name);
+}
+function _doc(name, id) {
+  return doc(db, name, id);
+}
+// A fresh, never-used document id.
+function _newId(name) {
+  return doc(_col(name)).id;
+}
+function _now() {
+  return new Date().toISOString();
 }
 
 /* ---------- users & auth ---------- */
-function getUsers() {
-  return _load(KEYS.users, []);
+export function getUsers() {
+  return _cache.users.slice();
 }
-function findUser(username) {
+export function findUser(username) {
   const u = (username || "").trim().toLowerCase();
   return getUsers().find((x) => x.username.toLowerCase() === u) || null;
 }
-
 // Everyone Deshna has already said yes to.
-function getApprovedUsers() {
+export function getApprovedUsers() {
   return getUsers().filter((u) => u.status === "approved");
 }
 // Friends still waiting for Deshna to say yes.
-function getPendingUsers() {
+export function getPendingUsers() {
   return getUsers()
     .filter((u) => u.status === "pending")
     .sort((a, b) => a.joined.localeCompare(b.joined));
 }
 
 // New friends wait in line — Deshna accepts or declines them on the admin page.
-function register(username, pin) {
+export async function register(username, pin) {
   username = (username || "").trim();
   if (username.length < 2) return { ok: false, msg: "Please pick a name (at least 2 letters)." };
   if (!/^\d{4}$/.test(pin)) return { ok: false, msg: "PIN must be exactly 4 digits." };
-  if (findUser(username)) return { ok: false, msg: "That name is already taken. Try another." };
 
-  const users = getUsers();
-  users.push({
-    username,
-    pin,
-    balance: START_BALANCE,
-    joined: new Date().toISOString(),
-    status: "pending",
-  });
-  _save(KEYS.users, users);
+  // The lowercased name is the document id, so two computers can never
+  // create the same friend twice.
+  const ref = _doc("users", username.toLowerCase());
+  try {
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(ref);
+      if (snap.exists()) throw new Error("taken");
+      tx.set(ref, {
+        username,
+        pin,
+        balance: START_BALANCE,
+        joined: _now(),
+        status: "pending",
+      });
+    });
+  } catch (e) {
+    if (e.message === "taken") return { ok: false, msg: "That name is already taken. Try another." };
+    return { ok: false, msg: "Could not reach the internet. Try again in a moment." };
+  }
+
   return {
     ok: true,
     msg: `Thanks, ${username}! ${ADMIN_DISPLAY_NAME} has to say yes before you can log in. ⏳`,
   };
 }
 
-function login(username, pin) {
-  const user = findUser(username);
-  if (!user) return { ok: false, msg: "No friend with that name. Register first!" };
+export async function login(username, pin) {
+  const snap = await getDoc(_doc("users", (username || "").trim().toLowerCase()));
+  if (!snap.exists()) return { ok: false, msg: "No friend with that name. Register first!" };
+  const user = snap.data();
   if (user.pin !== pin) return { ok: false, msg: "Wrong PIN. Try again." };
   if (user.status === "pending")
     return { ok: false, msg: `${ADMIN_DISPLAY_NAME} hasn't said yes to you yet. Please wait a bit! ⏳` };
-  _save(KEYS.session, user.username);
+  localStorage.setItem(SESSION_KEY, user.username);
   return { ok: true, msg: `Welcome back, ${user.username}!` };
 }
 
-function logout() {
-  localStorage.removeItem(KEYS.session);
+export function logout() {
+  localStorage.removeItem(SESSION_KEY);
 }
 
-function currentUser() {
-  const name = _load(KEYS.session, null);
+export function currentUser() {
+  const name = localStorage.getItem(SESSION_KEY);
   return name ? findUser(name) : null;
 }
 
-function getBalance(username) {
+export function getBalance(username) {
   const u = findUser(username);
   return u ? u.balance : 0;
 }
 
-function _setBalance(username, newBalance) {
-  const users = getUsers();
-  const u = users.find((x) => x.username === username);
-  if (u) {
-    u.balance = newBalance;
-    _save(KEYS.users, users);
-  }
-}
-
 /* ---------- items ---------- */
-function getItems() {
-  return _load(KEYS.items, []);
+export function getItems() {
+  return _cache.items.slice();
 }
-function getItemsByOwner(username) {
+export function getItemsByOwner(username) {
   return getItems().filter((i) => i.owner === username);
 }
 // Available toys from everyone EXCEPT the given user.
-function getMarketItems(username) {
+export function getMarketItems(username) {
   return getItems().filter((i) => i.status === "available" && i.owner !== username);
 }
 
-function addItem({ owner, name, condition, category, price, description, image }) {
-  const items = getItems();
+export async function addItem({ owner, name, condition, category, price, description, image }) {
   const item = {
-    id: "t" + Date.now() + Math.floor((performance.now() % 1) * 1000),
     owner,
     name: (name || "").trim(),
     condition: condition || "used",
@@ -138,33 +199,36 @@ function addItem({ owner, name, condition, category, price, description, image }
     image: image || "images/placeholder.svg",
     status: "available",
     buyer: null,
-    createdAt: new Date().toISOString(),
+    createdAt: _now(),
   };
-  items.push(item);
-  _save(KEYS.items, items);
-  return item;
+  // A whole photo has to fit in one database record (1 MB limit).
+  if (item.image.length > 900000)
+    return { ok: false, msg: "That photo is too big. Try a smaller one. 📸" };
+
+  const id = _newId("items");
+  await setDoc(_doc("items", id), item);
+  return { ok: true, item: { ...item, id } };
 }
 
-function deleteItem(id, owner) {
-  let items = getItems();
-  const item = items.find((i) => i.id === id);
+export async function deleteItem(id, owner) {
+  const item = getItems().find((i) => i.id === id);
   if (!item) return { ok: false, msg: "Item not found." };
   if (item.owner !== owner) return { ok: false, msg: "You can only remove your own toys." };
   if (item.status === "sold") return { ok: false, msg: "Sold toys stay in your history." };
-  items = items.filter((i) => i.id !== id);
-  _save(KEYS.items, items);
+  await deleteDoc(_doc("items", id));
+  await _cancelPendingFor([id]);
   return { ok: true };
 }
 
 /* ---------- buy requests (ask → seller says yes/no) ---------- */
-function getRequests() {
-  return _load(KEYS.requests, []);
+export function getRequests() {
+  return _cache.requests.slice();
 }
-function hasPendingRequest(itemId, buyerName) {
+export function hasPendingRequest(itemId, buyerName) {
   return getRequests().some((r) => r.itemId === itemId && r.buyer === buyerName && r.status === "pending");
 }
 // A buyer asks to buy a toy. Coins do NOT move until the seller says yes.
-function askToBuy(itemId, buyerName) {
+export async function askToBuy(itemId, buyerName) {
   const item = getItems().find((i) => i.id === itemId);
   if (!item) return { ok: false, msg: "This toy is gone." };
   if (item.status !== "available") return { ok: false, msg: "Sorry, that toy is already taken." };
@@ -175,9 +239,7 @@ function askToBuy(itemId, buyerName) {
   if (buyer.balance < item.price)
     return { ok: false, msg: `You need ${COIN} ${item.price} but only have ${COIN} ${buyer.balance}.` };
 
-  const reqs = getRequests();
-  reqs.push({
-    id: "r" + Date.now(),
+  await setDoc(_doc("requests", _newId("requests")), {
     itemId: item.id,
     itemName: item.name,
     image: item.image,
@@ -185,119 +247,119 @@ function askToBuy(itemId, buyerName) {
     buyer: buyerName,
     price: item.price,
     status: "pending",
-    date: new Date().toISOString(),
+    date: _now(),
   });
-  _save(KEYS.requests, reqs);
   return { ok: true, msg: `You asked ${item.owner} to buy "${item.name}"! 🙋 Wait for a yes.` };
 }
 
-function requestsForSeller(sellerName) {
+export function requestsForSeller(sellerName) {
   return getRequests()
     .filter((r) => r.seller === sellerName && r.status === "pending")
     .sort((a, b) => b.date.localeCompare(a.date));
 }
-function requestsByBuyer(buyerName) {
+export function requestsByBuyer(buyerName) {
   return getRequests()
     .filter((r) => r.buyer === buyerName)
     .sort((a, b) => b.date.localeCompare(a.date));
 }
 
 // Seller says YES → move coins, mark sold, cancel other asks for that toy.
-function acceptRequest(reqId, sellerName) {
-  const reqs = getRequests();
-  const req = reqs.find((r) => r.id === reqId);
-  if (!req || req.status !== "pending") return { ok: false, msg: "This request is no longer waiting." };
-  if (req.seller !== sellerName) return { ok: false, msg: "That's not your toy." };
+// Done as one transaction so two computers can't sell the same toy twice.
+export async function acceptRequest(reqId, sellerName) {
+  const cached = getRequests().find((r) => r.id === reqId);
+  if (!cached) return { ok: false, msg: "This request is no longer waiting." };
 
-  const item = getItems().find((i) => i.id === req.itemId);
-  if (!item || item.status !== "available") return { ok: false, msg: "That toy is already taken." };
+  const txnId = _newId("txns");
+  let result;
+  try {
+    result = await runTransaction(db, async (tx) => {
+      const reqRef = _doc("requests", reqId);
+      const reqSnap = await tx.get(reqRef);
+      if (!reqSnap.exists()) return { ok: false, msg: "This request is no longer waiting." };
+      const req = reqSnap.data();
+      if (req.status !== "pending") return { ok: false, msg: "This request is no longer waiting." };
+      if (req.seller !== sellerName) return { ok: false, msg: "That's not your toy." };
 
-  const buyer = findUser(req.buyer);
-  if (!buyer || buyer.balance < req.price) {
-    req.status = "declined";
-    _save(KEYS.requests, reqs);
-    return { ok: false, msg: `${req.buyer} doesn't have enough coins anymore. Request removed.` };
+      const itemRef = _doc("items", req.itemId);
+      const buyerRef = _doc("users", req.buyer.toLowerCase());
+      const sellerRef = _doc("users", sellerName.toLowerCase());
+      const [itemSnap, buyerSnap, sellerSnap] = [await tx.get(itemRef), await tx.get(buyerRef), await tx.get(sellerRef)];
+
+      if (!itemSnap.exists() || itemSnap.data().status !== "available")
+        return { ok: false, msg: "That toy is already taken." };
+      if (!buyerSnap.exists() || buyerSnap.data().balance < req.price) {
+        tx.update(reqRef, { status: "declined" });
+        return { ok: false, msg: `${req.buyer} doesn't have enough coins anymore. Request removed.` };
+      }
+
+      const item = itemSnap.data();
+      const soldAt = _now();
+      tx.update(buyerRef, { balance: buyerSnap.data().balance - req.price });
+      tx.update(sellerRef, { balance: sellerSnap.data().balance + req.price });
+      tx.update(itemRef, { status: "sold", buyer: req.buyer, soldAt });
+      tx.update(reqRef, { status: "accepted" });
+      tx.set(_doc("txns", txnId), {
+        itemId: req.itemId,
+        itemName: item.name,
+        image: item.image,
+        seller: item.owner,
+        buyer: req.buyer,
+        price: req.price,
+        date: soldAt,
+      });
+
+      return {
+        ok: true,
+        itemId: req.itemId,
+        msg: `Sold "${item.name}" to ${req.buyer}! 🎉 Hand it over when you meet.`,
+      };
+    });
+  } catch (e) {
+    console.error(e);
+    return { ok: false, msg: "Something went wrong. Try again." };
   }
 
-  _completeSale(item, buyer.username, req.price);
-
-  // Accept this one, auto-cancel the rest for the same toy.
-  reqs.forEach((r) => {
-    if (r.itemId === req.itemId && r.status === "pending") {
-      r.status = r.id === reqId ? "accepted" : "declined";
-    }
-  });
-  _save(KEYS.requests, reqs);
-  return { ok: true, msg: `Sold "${item.name}" to ${buyer.username}! 🎉 Hand it over when you meet.` };
+  // Everyone else who asked for that toy is out of luck.
+  if (result.ok) await _cancelPendingFor([result.itemId], null, reqId);
+  return result;
 }
 
-function declineRequest(reqId, sellerName) {
-  const reqs = getRequests();
-  const req = reqs.find((r) => r.id === reqId);
+export async function declineRequest(reqId, sellerName) {
+  const req = getRequests().find((r) => r.id === reqId);
   if (!req || req.seller !== sellerName) return { ok: false, msg: "Can't do that." };
-  req.status = "declined";
-  _save(KEYS.requests, reqs);
+  await updateDoc(_doc("requests", reqId), { status: "declined" });
   return { ok: true, msg: "Maybe next time! Request said no." };
 }
 
-// Shared money move + receipt.
-function _completeSale(item, buyerName, price) {
-  _setBalance(buyerName, getBalance(buyerName) - price);
-  _setBalance(item.owner, getBalance(item.owner) + price);
-
-  const items = getItems();
-  const it = items.find((i) => i.id === item.id);
-  it.status = "sold";
-  it.buyer = buyerName;
-  it.soldAt = new Date().toISOString();
-  _save(KEYS.items, items);
-
-  // A sold toy can't be swapped any more.
-  _cancelSwapsFor(it.id);
-
-  const txns = getTxns();
-  txns.push({
-    id: "x" + Date.now(),
-    itemId: it.id,
-    itemName: it.name,
-    image: it.image,
-    seller: it.owner,
-    buyer: buyerName,
-    price: price,
-    date: new Date().toISOString(),
-  });
-  _save(KEYS.txns, txns);
-}
-
 /* ---------- trading board (toy for toy, no coins) ---------- */
-function getSwaps() {
-  return _load(KEYS.swaps, []);
+export function getSwaps() {
+  return _cache.swaps.slice();
 }
 
 // Offers waiting for me to say yes (someone wants one of my toys).
-function swapsForOwner(name) {
+export function swapsForOwner(name) {
   return getSwaps()
     .filter((s) => s.to === name && s.status === "pending")
     .sort((a, b) => b.date.localeCompare(a.date));
 }
 // Offers I made, whatever happened to them.
-function swapsByOfferer(name) {
+export function swapsByOfferer(name) {
   return getSwaps()
     .filter((s) => s.from === name)
     .sort((a, b) => b.date.localeCompare(a.date));
 }
 // Swaps that actually happened, for either side.
-function swapHistoryFor(name) {
+export function swapHistoryFor(name) {
   return getSwaps()
     .filter((s) => s.status === "accepted" && (s.from === name || s.to === name))
     .sort((a, b) => b.date.localeCompare(a.date));
 }
-function hasPendingSwap(giveId, getId) {
+export function hasPendingSwap(giveId, getId) {
   return getSwaps().some((s) => s.giveId === giveId && s.getId === getId && s.status === "pending");
 }
 
 // "I'll give you my Pop It for your Fidget Cube."
-function offerSwap(giveId, getId, fromName) {
+export async function offerSwap(giveId, getId, fromName) {
   const items = getItems();
   const give = items.find((i) => i.id === giveId);
   const get = items.find((i) => i.id === getId);
@@ -310,9 +372,7 @@ function offerSwap(giveId, getId, fromName) {
   if (get.status !== "available") return { ok: false, msg: "Sorry, that toy is already taken." };
   if (hasPendingSwap(giveId, getId)) return { ok: false, msg: "You already offered that swap." };
 
-  const swaps = getSwaps();
-  swaps.push({
-    id: "w" + Date.now(),
+  await setDoc(_doc("swaps", _newId("swaps")), {
     from: fromName,
     to: get.owner,
     giveId: give.id,
@@ -322,118 +382,130 @@ function offerSwap(giveId, getId, fromName) {
     getName: get.name,
     getImage: get.image,
     status: "pending",
-    date: new Date().toISOString(),
+    date: _now(),
   });
-  _save(KEYS.swaps, swaps);
   return { ok: true, msg: `You offered "${give.name}" for ${get.owner}'s "${get.name}"! 🔄 Wait for a yes.` };
 }
 
 // Owner says YES → the two toys change hands. No coins move at all.
-function acceptSwap(swapId, ownerName) {
-  const swaps = getSwaps();
-  const s = swaps.find((x) => x.id === swapId);
-  if (!s || s.status !== "pending") return { ok: false, msg: "This swap is no longer waiting." };
-  if (s.to !== ownerName) return { ok: false, msg: "That's not your toy." };
+export async function acceptSwap(swapId, ownerName) {
+  let result;
+  try {
+    result = await runTransaction(db, async (tx) => {
+      const swapRef = _doc("swaps", swapId);
+      const swapSnap = await tx.get(swapRef);
+      if (!swapSnap.exists() || swapSnap.data().status !== "pending")
+        return { ok: false, msg: "This swap is no longer waiting." };
+      const s = swapSnap.data();
+      if (s.to !== ownerName) return { ok: false, msg: "That's not your toy." };
 
-  const items = getItems();
-  const give = items.find((i) => i.id === s.giveId);
-  const get = items.find((i) => i.id === s.getId);
-  if (!give || !get || give.status !== "available" || get.status !== "available") {
-    s.status = "declined";
-    _save(KEYS.swaps, swaps);
-    return { ok: false, msg: "One of those toys is gone now. Swap removed." };
+      const giveRef = _doc("items", s.giveId);
+      const getRef = _doc("items", s.getId);
+      const [giveSnap, getSnap] = [await tx.get(giveRef), await tx.get(getRef)];
+
+      if (!giveSnap.exists() || !getSnap.exists()) {
+        tx.update(swapRef, { status: "declined" });
+        return { ok: false, msg: "One of those toys is gone now. Swap removed." };
+      }
+      const give = giveSnap.data();
+      const get = getSnap.data();
+      if (give.status !== "available" || get.status !== "available") {
+        tx.update(swapRef, { status: "declined" });
+        return { ok: false, msg: "One of those toys is gone now. Swap removed." };
+      }
+      if (give.owner !== s.from || get.owner !== s.to) {
+        tx.update(swapRef, { status: "declined" });
+        return { ok: false, msg: "Those toys changed hands already. Swap removed." };
+      }
+
+      const doneAt = _now();
+      tx.update(giveRef, { owner: s.to, tradedAt: doneAt });
+      tx.update(getRef, { owner: s.from, tradedAt: doneAt });
+      tx.update(swapRef, { status: "accepted", doneAt });
+
+      return {
+        ok: true,
+        ids: [s.giveId, s.getId],
+        msg: `Swapped! "${s.getName}" is yours and ${s.from} gets "${s.giveName}". 🔄 Trade them in person!`,
+      };
+    });
+  } catch (e) {
+    console.error(e);
+    return { ok: false, msg: "Something went wrong. Try again." };
   }
-  if (give.owner !== s.from || get.owner !== s.to) {
-    s.status = "declined";
-    _save(KEYS.swaps, swaps);
-    return { ok: false, msg: "Those toys changed hands already. Swap removed." };
-  }
-
-  const now = new Date().toISOString();
-  give.owner = s.to;
-  give.tradedAt = now;
-  get.owner = s.from;
-  get.tradedAt = now;
-  _save(KEYS.items, items);
-
-  s.status = "accepted";
-  s.doneAt = now;
-  _save(KEYS.swaps, swaps);
 
   // Any other offer or buy request for these two toys is now out of date.
-  _cancelPendingFor([s.giveId, s.getId], swapId);
-
-  return { ok: true, msg: `Swapped! "${s.getName}" is yours and ${s.from} gets "${s.giveName}". 🔄 Trade them in person!` };
+  if (result.ok) await _cancelPendingFor(result.ids, swapId);
+  return result;
 }
 
-function declineSwap(swapId, ownerName) {
-  const swaps = getSwaps();
-  const s = swaps.find((x) => x.id === swapId);
+export async function declineSwap(swapId, ownerName) {
+  const s = getSwaps().find((x) => x.id === swapId);
   if (!s || s.to !== ownerName || s.status !== "pending") return { ok: false, msg: "Can't do that." };
-  s.status = "declined";
-  _save(KEYS.swaps, swaps);
+  await updateDoc(_doc("swaps", swapId), { status: "declined" });
   return { ok: true, msg: "Maybe next time! Swap said no." };
 }
 
 // The friend who made the offer changes their mind.
-function cancelSwap(swapId, fromName) {
-  const swaps = getSwaps();
-  const s = swaps.find((x) => x.id === swapId);
+export async function cancelSwap(swapId, fromName) {
+  const s = getSwaps().find((x) => x.id === swapId);
   if (!s || s.from !== fromName || s.status !== "pending") return { ok: false, msg: "Can't do that." };
-  s.status = "cancelled";
-  _save(KEYS.swaps, swaps);
+  await updateDoc(_doc("swaps", swapId), { status: "cancelled" });
   return { ok: true, msg: "Offer taken back." };
 }
 
-// Once a toy is sold or swapped, tidy up every other pending offer/request for it.
-function _cancelSwapsFor(itemId, keepSwapId) {
-  const swaps = getSwaps();
+// Once a toy is sold, swapped or removed, tidy up every other pending
+// offer and buy request that still points at it.
+async function _cancelPendingFor(itemIds, keepSwapId, keepRequestId) {
+  const batch = writeBatch(db);
   let touched = false;
-  swaps.forEach((s) => {
-    if (s.status === "pending" && s.id !== keepSwapId && (s.giveId === itemId || s.getId === itemId)) {
-      s.status = "declined";
+
+  getSwaps().forEach((s) => {
+    if (s.status === "pending" && s.id !== keepSwapId && (itemIds.includes(s.giveId) || itemIds.includes(s.getId))) {
+      batch.update(_doc("swaps", s.id), { status: "declined" });
       touched = true;
     }
   });
-  if (touched) _save(KEYS.swaps, swaps);
-}
-
-function _cancelPendingFor(itemIds, keepSwapId) {
-  itemIds.forEach((id) => _cancelSwapsFor(id, keepSwapId));
-
-  const reqs = getRequests();
-  let touchedReqs = false;
-  reqs.forEach((r) => {
-    if (r.status === "pending" && itemIds.includes(r.itemId)) {
-      r.status = "declined";
-      touchedReqs = true;
+  getRequests().forEach((r) => {
+    if (r.status === "pending" && r.id !== keepRequestId && itemIds.includes(r.itemId)) {
+      batch.update(_doc("requests", r.id), { status: "declined" });
+      touched = true;
     }
   });
-  if (touchedReqs) _save(KEYS.requests, reqs);
+
+  if (touched) await batch.commit();
 }
 
 /* ---------- sending coins (gift) ---------- */
-function getTransfers() {
-  return _load(KEYS.transfers, []);
+export function getTransfers() {
+  return _cache.transfers.slice();
 }
-function sendCoins(fromName, toName, amount) {
+export async function sendCoins(fromName, toName, amount) {
   amount = Math.round(Number(amount) || 0);
   if (amount <= 0) return { ok: false, msg: "Pick how many coins to send." };
   if (!toName || toName === fromName) return { ok: false, msg: "Choose a friend to send coins to." };
-  const from = findUser(fromName);
-  const to = findUser(toName);
-  if (!to) return { ok: false, msg: "That friend was not found." };
-  if (from.balance < amount) return { ok: false, msg: `You only have ${COIN} ${from.balance}.` };
 
-  _setBalance(fromName, from.balance - amount);
-  _setBalance(toName, to.balance + amount);
+  const transferId = _newId("transfers");
+  try {
+    return await runTransaction(db, async (tx) => {
+      const fromRef = _doc("users", fromName.toLowerCase());
+      const toRef = _doc("users", toName.toLowerCase());
+      const [fromSnap, toSnap] = [await tx.get(fromRef), await tx.get(toRef)];
+      if (!toSnap.exists()) return { ok: false, msg: "That friend was not found." };
+      const from = fromSnap.data();
+      if (from.balance < amount) return { ok: false, msg: `You only have ${COIN} ${from.balance}.` };
 
-  const tr = getTransfers();
-  tr.push({ id: "s" + Date.now(), from: fromName, to: toName, amount, date: new Date().toISOString() });
-  _save(KEYS.transfers, tr);
-  return { ok: true, msg: `You sent ${COIN} ${amount} to ${toName}! 💝` };
+      tx.update(fromRef, { balance: from.balance - amount });
+      tx.update(toRef, { balance: toSnap.data().balance + amount });
+      tx.set(_doc("transfers", transferId), { from: fromName, to: toName, amount, date: _now() });
+      return { ok: true, msg: `You sent ${COIN} ${amount} to ${toName}! 💝` };
+    });
+  } catch (e) {
+    console.error(e);
+    return { ok: false, msg: "Something went wrong. Try again." };
+  }
 }
-function transfersForUser(name) {
+export function transfersForUser(name) {
   return getTransfers()
     .filter((t) => t.from === name || t.to === name)
     .sort((a, b) => b.date.localeCompare(a.date));
@@ -441,94 +513,95 @@ function transfersForUser(name) {
 
 /* ---------- admin powers ---------- */
 // Deshna says yes → the friend can log in from now on.
-function approveUser(username) {
-  const users = getUsers();
-  const u = users.find((x) => x.username === username);
+export async function approveUser(username) {
+  const u = findUser(username);
   if (!u) return { ok: false, msg: "Friend not found." };
   if (u.status === "approved") return { ok: false, msg: `${username} is already in.` };
-  u.status = "approved";
-  _save(KEYS.users, users);
+  await updateDoc(_doc("users", username.toLowerCase()), { status: "approved" });
   return { ok: true, msg: `${username} is in! 🎉 They start with ${COIN} ${u.balance}.` };
 }
 // Deshna says no → the sign-up is thrown away and the name is free again.
-function declineUser(username) {
-  const users = getUsers();
-  const u = users.find((x) => x.username === username);
+export async function declineUser(username) {
+  const u = findUser(username);
   if (!u) return { ok: false, msg: "Friend not found." };
   if (u.status !== "pending") return { ok: false, msg: "You can only decline friends who are still waiting." };
-  _save(KEYS.users, users.filter((x) => x.username !== username));
+  await deleteDoc(_doc("users", username.toLowerCase()));
   return { ok: true, msg: `${username}'s sign-up was removed.` };
 }
 
 // Put every single account back on the same number of coins.
-function adminSetAllCoins(amount) {
+export async function adminSetAllCoins(amount) {
   amount = Math.max(0, Math.round(Number(amount) || 0));
-  const users = getUsers();
-  users.forEach((u) => (u.balance = amount));
-  _save(KEYS.users, users);
+  const batch = writeBatch(db);
+  getUsers().forEach((u) => batch.update(_doc("users", u.username.toLowerCase()), { balance: amount }));
+  await batch.commit();
   return { ok: true, msg: `Everyone now has ${COIN} ${amount}. 🪙` };
 }
 
-function adminAddCoins(username, amount) {
+export async function adminAddCoins(username, amount) {
   amount = Math.round(Number(amount) || 0);
-  const u = findUser(username);
-  if (!u) return { ok: false, msg: "Friend not found." };
-  _setBalance(username, Math.max(0, u.balance + amount)); // amount can be negative to take away
-  return { ok: true, msg: `${username} now has ${COIN} ${getBalance(username)}.` };
+  const ref = _doc("users", (username || "").toLowerCase());
+  try {
+    return await runTransaction(db, async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists()) return { ok: false, msg: "Friend not found." };
+      const balance = Math.max(0, snap.data().balance + amount); // amount can be negative
+      tx.update(ref, { balance });
+      return { ok: true, msg: `${username} now has ${COIN} ${balance}.` };
+    });
+  } catch (e) {
+    console.error(e);
+    return { ok: false, msg: "Something went wrong. Try again." };
+  }
 }
-function adminResetAll() {
-  [KEYS.users, KEYS.items, KEYS.txns, KEYS.requests, KEYS.swaps, KEYS.transfers, KEYS.session].forEach((k) =>
-    localStorage.removeItem(k)
-  );
-  _seedAdmin(); // Deshna's own account always comes back
+
+export async function adminResetAll() {
+  for (const name of COLLECTIONS) {
+    const snap = await getDocs(_col(name));
+    // Firestore only takes 500 changes at a time.
+    for (let i = 0; i < snap.docs.length; i += 400) {
+      const batch = writeBatch(db);
+      snap.docs.slice(i, i + 400).forEach((d) => batch.delete(d.ref));
+      await batch.commit();
+    }
+  }
+  localStorage.removeItem(SESSION_KEY);
+  await _seedAdmin(true); // Deshna's own account always comes back
 }
 
 /* ---------- first-run setup ---------- */
-// Makes sure Deshna's admin account exists, and that friends saved before
-// approvals existed stay logged-in-able.
-function _seedAdmin() {
-  const users = getUsers();
-  let changed = false;
-
-  users.forEach((u) => {
-    if (!u.status) {
-      u.status = "approved";
-      changed = true;
-    }
-  });
-
-  const admin = users.find((x) => x.username.toLowerCase() === ADMIN_NAME);
-  if (!admin) {
-    users.push({
-      username: ADMIN_DISPLAY_NAME,
-      pin: ADMIN_PIN,
-      balance: START_BALANCE,
-      joined: new Date().toISOString(),
-      status: "approved",
-    });
-    changed = true;
-  } else if (admin.status !== "approved") {
-    admin.status = "approved";
-    changed = true;
+// Makes sure Deshna's admin account exists. Safe to run on every page load
+// and from several computers at once — the document id is always "deshna".
+async function _seedAdmin(force) {
+  const ref = _doc("users", ADMIN_NAME);
+  if (!force && findUser(ADMIN_NAME)) return;
+  const snap = await getDoc(ref);
+  if (snap.exists()) {
+    if (snap.data().status !== "approved") await updateDoc(ref, { status: "approved" });
+    return;
   }
-
-  if (changed) _save(KEYS.users, users);
+  await setDoc(ref, {
+    username: ADMIN_DISPLAY_NAME,
+    pin: ADMIN_PIN,
+    balance: START_BALANCE,
+    joined: _now(),
+    status: "approved",
+  });
 }
-_seedAdmin();
 
 /* ---------- transactions ---------- */
-function getTxns() {
-  return _load(KEYS.txns, []);
+export function getTxns() {
+  return _cache.txns.slice();
 }
-function boughtBy(username) {
+export function boughtBy(username) {
   return getTxns().filter((t) => t.buyer === username).sort((a, b) => b.date.localeCompare(a.date));
 }
-function soldBy(username) {
+export function soldBy(username) {
   return getTxns().filter((t) => t.seller === username).sort((a, b) => b.date.localeCompare(a.date));
 }
 
 /* ---------- helpers ---------- */
-function escapeHtml(str) {
+export function escapeHtml(str) {
   return String(str == null ? "" : str)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -536,11 +609,11 @@ function escapeHtml(str) {
     .replace(/"/g, "&quot;");
 }
 
-function coins(n) {
+export function coins(n) {
   return `${COIN} ${Number(n || 0).toLocaleString("en-IN")}`;
 }
 
-function timeAgo(iso) {
+export function timeAgo(iso) {
   try {
     return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
   } catch {
@@ -548,8 +621,8 @@ function timeAgo(iso) {
   }
 }
 
-// Shrink an uploaded image so it fits comfortably in localStorage.
-function resizeImage(file, maxDim, cb) {
+// Shrink an uploaded photo so it fits inside one database record (1 MB).
+export function resizeImage(file, maxDim, cb) {
   const reader = new FileReader();
   reader.onload = (e) => {
     const img = new Image();
@@ -568,7 +641,13 @@ function resizeImage(file, maxDim, cb) {
       canvas.width = width;
       canvas.height = height;
       canvas.getContext("2d").drawImage(img, 0, 0, width, height);
-      cb(canvas.toDataURL("image/jpeg", 0.8));
+
+      // Squash the quality down until the photo is small enough to store.
+      let dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+      [0.6, 0.45, 0.3].forEach((q) => {
+        if (dataUrl.length > 700000) dataUrl = canvas.toDataURL("image/jpeg", q);
+      });
+      cb(dataUrl);
     };
     img.src = e.target.result;
   };
@@ -577,7 +656,7 @@ function resizeImage(file, maxDim, cb) {
 
 /* ---------- shared navigation ---------- */
 // Pages that require login. Redirects to index.html if logged out.
-function requireAuth() {
+export function requireAuth() {
   if (!currentUser()) {
     location.href = "index.html?needlogin=1";
     return false;
@@ -585,7 +664,7 @@ function requireAuth() {
   return true;
 }
 
-function renderNav(activePage) {
+export function renderNav(activePage) {
   const user = currentUser();
   const authArea = document.getElementById("navAuth");
   const links = document.getElementById("navLinks");

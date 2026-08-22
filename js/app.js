@@ -1,12 +1,104 @@
 /* ============================================================
    Friends Trading Centre — page logic
    Runs the right code based on <body data-page="...">
+
+   The data lives in the cloud, so:
+     • the page waits for startStore() before drawing anything
+     • anything that changes data is awaited
+     • when a friend on another computer changes something, the
+       page redraws itself through _redraw
    ============================================================ */
 
-document.addEventListener("DOMContentLoaded", () => {
+import {
+  CONFIG_OK,
+  startStore,
+  renderNav,
+  requireAuth,
+  currentUser,
+  isAdmin,
+  COIN,
+  START_BALANCE,
+  SITE_NAME,
+  coins,
+  escapeHtml,
+  timeAgo,
+  resizeImage,
+  register,
+  login,
+  getApprovedUsers,
+  getPendingUsers,
+  approveUser,
+  declineUser,
+  getItems,
+  getItemsByOwner,
+  getMarketItems,
+  addItem,
+  deleteItem,
+  hasPendingRequest,
+  askToBuy,
+  requestsForSeller,
+  requestsByBuyer,
+  acceptRequest,
+  declineRequest,
+  swapsForOwner,
+  swapsByOfferer,
+  swapHistoryFor,
+  hasPendingSwap,
+  offerSwap,
+  acceptSwap,
+  declineSwap,
+  cancelSwap,
+  sendCoins,
+  boughtBy,
+  soldBy,
+  getTxns,
+  adminAddCoins,
+  adminSetAllCoins,
+  adminResetAll,
+} from "./store.js";
+
+// Each page sets this to its own draw function so live updates from other
+// computers can refresh what's on screen.
+let _redraw = null;
+
+document.addEventListener("DOMContentLoaded", async () => {
   const page = document.body.dataset.page;
   const yearEl = document.getElementById("year");
   if (yearEl) yearEl.textContent = new Date().getFullYear();
+
+  if (!CONFIG_OK) {
+    showOverlay(
+      "Almost there! 🔌",
+      `<p>${SITE_NAME} needs its cloud database before it can run.</p>
+       <p class="hint">Open <b>js/firebase-config.js</b> and paste in your Firebase project settings.
+       Step-by-step instructions are in the <b>README</b>.</p>`
+    );
+    return;
+  }
+
+  showOverlay("Connecting… ⏳", `<p class="hint">Fetching everyone's toys and coins.</p>`);
+  try {
+    await startStore(() => {
+      // Someone (probably the admin) wiped the account we're logged in as.
+      if (page !== "home" && !currentUser()) {
+        location.href = "index.html";
+        return;
+      }
+      renderNav(page);
+      if (_redraw) _redraw();
+    });
+  } catch (err) {
+    console.error(err);
+    showOverlay(
+      "Can't reach the internet 📡",
+      `<p>${SITE_NAME} couldn't load your friends' toys.</p>
+       <p class="hint">Check your connection and refresh the page. If this keeps happening, make sure the
+       Firestore database exists and its rules allow reading and writing.</p>
+       <p class="hint" style="opacity:.7">${escapeHtml(err.message || err)}</p>`
+    );
+    return;
+  }
+  hideOverlay();
 
   renderNav(page);
 
@@ -17,6 +109,23 @@ document.addEventListener("DOMContentLoaded", () => {
   if (page === "history") initHistory();
   if (page === "admin") initAdmin();
 });
+
+/* ---------- full-page message (loading / setup / offline) ---------- */
+function showOverlay(title, html) {
+  let o = document.getElementById("cloudOverlay");
+  if (!o) {
+    o = document.createElement("div");
+    o.id = "cloudOverlay";
+    o.className = "cloud-overlay";
+    document.body.appendChild(o);
+  }
+  o.innerHTML = `<div class="cloud-card"><h2>${title}</h2>${html}</div>`;
+  o.style.display = "grid";
+}
+function hideOverlay() {
+  const o = document.getElementById("cloudOverlay");
+  if (o) o.style.display = "none";
+}
 
 /* ---------- toast ---------- */
 let _toastTimer;
@@ -32,6 +141,17 @@ function toast(msg) {
   t.classList.add("show");
   clearTimeout(_toastTimer);
   _toastTimer = setTimeout(() => t.classList.remove("show"), 3400);
+}
+
+// Stops double-clicks turning into double trades while we wait for the cloud.
+async function busy(btn, work) {
+  if (btn.disabled) return;
+  btn.disabled = true;
+  try {
+    await work();
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 /* ============================================================
@@ -70,15 +190,17 @@ function initHome() {
   if (regForm) {
     regForm.addEventListener("submit", (e) => {
       e.preventDefault();
-      const name = document.getElementById("regName").value;
-      const pin = document.getElementById("regPin").value;
-      const res = register(name, pin);
-      toast(res.msg);
-      if (res.ok) {
-        // No login yet — Deshna has to accept them on the admin page first.
-        regForm.reset();
-        document.querySelector('.tab[data-target="loginPanel"]').click();
-      }
+      busy(regForm.querySelector("button[type=submit]"), async () => {
+        const name = document.getElementById("regName").value;
+        const pin = document.getElementById("regPin").value;
+        const res = await register(name, pin);
+        toast(res.msg);
+        if (res.ok) {
+          // No login yet — Deshna has to accept them on the admin page first.
+          regForm.reset();
+          document.querySelector('.tab[data-target="loginPanel"]').click();
+        }
+      });
     });
   }
 
@@ -87,15 +209,13 @@ function initHome() {
   if (loginForm) {
     loginForm.addEventListener("submit", (e) => {
       e.preventDefault();
-      const name = document.getElementById("logName").value;
-      const pin = document.getElementById("logPin").value;
-      const res = login(name, pin);
-      if (res.ok) {
+      busy(loginForm.querySelector("button[type=submit]"), async () => {
+        const name = document.getElementById("logName").value;
+        const pin = document.getElementById("logPin").value;
+        const res = await login(name, pin);
         toast(res.msg);
-        setTimeout(() => (location.href = "market.html"), 600);
-      } else {
-        toast(res.msg);
-      }
+        if (res.ok) setTimeout(() => (location.href = "market.html"), 600);
+      });
     });
   }
 }
@@ -126,6 +246,7 @@ function initMarket() {
 
   function draw() {
     const grid = document.getElementById("marketGrid");
+    const fresh = currentUser();
     let list = getMarketItems(me.username);
     if (activeCond !== "All") list = list.filter((i) => i.condition === activeCond);
 
@@ -138,7 +259,7 @@ function initMarket() {
     grid.innerHTML = list
       .map((i) => {
         const asked = hasPendingRequest(i.id, me.username);
-        const canAfford = me.balance >= i.price;
+        const canAfford = fresh.balance >= i.price;
         let btn;
         if (asked) {
           btn = `<button class="btn small ghost" disabled>Asked ⏳</button>`;
@@ -169,14 +290,17 @@ function initMarket() {
       .join("");
 
     grid.querySelectorAll(".ask-btn").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const res = askToBuy(btn.dataset.id, me.username);
-        toast(res.msg);
-        if (res.ok) draw();
-      });
+      btn.addEventListener("click", () =>
+        busy(btn, async () => {
+          const res = await askToBuy(btn.dataset.id, me.username);
+          toast(res.msg);
+          draw();
+        })
+      );
     });
   }
 
+  _redraw = draw;
   draw();
 }
 
@@ -228,16 +352,20 @@ function initTrade() {
       .join("");
 
     wrap.querySelectorAll(".swap-yes").forEach((b) =>
-      b.addEventListener("click", () => {
-        toast(acceptSwap(b.dataset.id, me.username).msg);
-        drawAll();
-      })
+      b.addEventListener("click", () =>
+        busy(b, async () => {
+          toast((await acceptSwap(b.dataset.id, me.username)).msg);
+          drawAll();
+        })
+      )
     );
     wrap.querySelectorAll(".swap-no").forEach((b) =>
-      b.addEventListener("click", () => {
-        toast(declineSwap(b.dataset.id, me.username).msg);
-        drawAll();
-      })
+      b.addEventListener("click", () =>
+        busy(b, async () => {
+          toast((await declineSwap(b.dataset.id, me.username)).msg);
+          drawAll();
+        })
+      )
     );
   }
 
@@ -271,10 +399,12 @@ function initTrade() {
       .join("");
 
     wrap.querySelectorAll(".swap-cancel").forEach((b) =>
-      b.addEventListener("click", () => {
-        toast(cancelSwap(b.dataset.id, me.username).msg);
-        drawAll();
-      })
+      b.addEventListener("click", () =>
+        busy(b, async () => {
+          toast((await cancelSwap(b.dataset.id, me.username)).msg);
+          drawAll();
+        })
+      )
     );
   }
 
@@ -328,13 +458,15 @@ function initTrade() {
       .join("");
 
     grid.querySelectorAll(".offer-btn").forEach((btn) =>
-      btn.addEventListener("click", () => {
-        const getId = btn.dataset.get;
-        const select = grid.querySelector(`.give-pick[data-get="${getId}"]`);
-        const res = offerSwap(select.value, getId, me.username);
-        toast(res.msg);
-        if (res.ok) drawAll();
-      })
+      btn.addEventListener("click", () =>
+        busy(btn, async () => {
+          const getId = btn.dataset.get;
+          const select = grid.querySelector(`.give-pick[data-get="${getId}"]`);
+          const res = await offerSwap(select.value, getId, me.username);
+          toast(res.msg);
+          drawAll();
+        })
+      )
     );
   }
 
@@ -365,13 +497,13 @@ function initTrade() {
   }
 
   function drawAll() {
-    renderNav("trade"); // keeps the "(2)" swap count fresh
     drawInbox();
     drawOutbox();
     drawBoard();
     drawHistory();
   }
 
+  _redraw = drawAll;
   drawAll();
 }
 
@@ -403,21 +535,33 @@ function initMyToys() {
   const form = document.getElementById("toyForm");
   form.addEventListener("submit", (e) => {
     e.preventDefault();
-    const name = document.getElementById("toyName").value.trim();
-    const price = Number(document.getElementById("toyPrice").value);
-    const condition = form.querySelector('input[name="condition"]:checked').value;
-    const category = document.getElementById("toyCategory").value.trim() || "Toy";
-    const description = document.getElementById("toyDesc").value.trim();
+    busy(form.querySelector("button[type=submit]"), async () => {
+      const name = document.getElementById("toyName").value.trim();
+      const price = Number(document.getElementById("toyPrice").value);
+      const condition = form.querySelector('input[name="condition"]:checked').value;
+      const category = document.getElementById("toyCategory").value.trim() || "Toy";
+      const description = document.getElementById("toyDesc").value.trim();
 
-    if (!name) return toast("Please give your toy a name.");
-    if (isNaN(price) || price < 0) return toast("Please set a valid price in coins.");
+      if (!name) return toast("Please give your toy a name.");
+      if (isNaN(price) || price < 0) return toast("Please set a valid price in coins.");
 
-    addItem({ owner: me.username, name, condition, category, price, description, image: imageData || "images/placeholder.svg" });
-    form.reset();
-    imageData = "";
-    previewBox.innerHTML = "<span>Photo preview</span>";
-    toast(`"${name}" is now up for trade! 🎉`);
-    drawMine();
+      const res = await addItem({
+        owner: me.username,
+        name,
+        condition,
+        category,
+        price,
+        description,
+        image: imageData || "images/placeholder.svg",
+      });
+      if (!res.ok) return toast(res.msg);
+
+      form.reset();
+      imageData = "";
+      previewBox.innerHTML = "<span>Photo preview</span>";
+      toast(`"${name}" is now up for trade! 🎉`);
+      drawMine();
+    });
   });
 
   function drawMine() {
@@ -443,12 +587,14 @@ function initMyToys() {
       .join("");
 
     wrap.querySelectorAll(".del-btn").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        if (!confirm("Remove this toy from the marketplace?")) return;
-        const res = deleteItem(btn.dataset.id, me.username);
-        toast(res.ok ? "Toy removed." : res.msg);
-        drawMine();
-      });
+      btn.addEventListener("click", () =>
+        busy(btn, async () => {
+          if (!confirm("Remove this toy from the marketplace?")) return;
+          const res = await deleteItem(btn.dataset.id, me.username);
+          toast(res.ok ? "Toy removed." : res.msg);
+          drawMine();
+        })
+      );
     });
   }
 
@@ -479,25 +625,33 @@ function initMyToys() {
       .join("");
 
     wrap.querySelectorAll(".yes-btn").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const res = acceptRequest(btn.dataset.id, me.username);
-        toast(res.msg);
-        renderNav("mytoys");
-        drawRequests();
-        drawMine();
-      });
+      btn.addEventListener("click", () =>
+        busy(btn, async () => {
+          const res = await acceptRequest(btn.dataset.id, me.username);
+          toast(res.msg);
+          renderNav("mytoys");
+          drawBoth();
+        })
+      );
     });
     wrap.querySelectorAll(".no-btn").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const res = declineRequest(btn.dataset.id, me.username);
-        toast(res.msg);
-        drawRequests();
-      });
+      btn.addEventListener("click", () =>
+        busy(btn, async () => {
+          const res = await declineRequest(btn.dataset.id, me.username);
+          toast(res.msg);
+          drawRequests();
+        })
+      );
     });
   }
 
-  drawRequests();
-  drawMine();
+  function drawBoth() {
+    drawRequests();
+    drawMine();
+  }
+
+  _redraw = drawBoth;
+  drawBoth();
 }
 
 /* ============================================================
@@ -522,24 +676,28 @@ function initHistory() {
   // Send-coins friend dropdown (everyone except me)
   const select = document.getElementById("sendTo");
   function fillFriends() {
+    const keep = select.value;
     const others = getApprovedUsers().filter((u) => u.username !== me.username);
     select.innerHTML = others.length
       ? others.map((u) => `<option value="${escapeHtml(u.username)}">${escapeHtml(u.username)}</option>`).join("")
       : `<option value="">No friends yet</option>`;
+    if (keep) select.value = keep;
   }
-  fillFriends();
 
-  document.getElementById("sendForm").addEventListener("submit", (e) => {
+  const sendForm = document.getElementById("sendForm");
+  sendForm.addEventListener("submit", (e) => {
     e.preventDefault();
-    const to = select.value;
-    const amount = document.getElementById("sendAmount").value;
-    const res = sendCoins(me.username, to, amount);
-    toast(res.msg);
-    if (res.ok) {
-      document.getElementById("sendAmount").value = "";
-      renderNav("history");
-      drawStats();
-    }
+    busy(sendForm.querySelector("button[type=submit]"), async () => {
+      const to = select.value;
+      const amount = document.getElementById("sendAmount").value;
+      const res = await sendCoins(me.username, to, amount);
+      toast(res.msg);
+      if (res.ok) {
+        document.getElementById("sendAmount").value = "";
+        renderNav("history");
+        drawStats();
+      }
+    });
   });
 
   // My asks (buy requests I made)
@@ -570,8 +728,14 @@ function initHistory() {
       .join("");
   }
 
-  drawStats();
-  drawAsks();
+  function drawEverything() {
+    fillFriends();
+    drawStats();
+    drawAsks();
+  }
+
+  _redraw = drawEverything;
+  drawEverything();
 }
 
 /* ============================================================
@@ -620,17 +784,21 @@ function initAdmin() {
       : `<p class="hint">Nobody is waiting right now. 🎈</p>`;
 
     pWrap.querySelectorAll(".ok-btn").forEach((b) =>
-      b.addEventListener("click", () => {
-        toast(approveUser(b.dataset.u).msg);
-        draw();
-      })
+      b.addEventListener("click", () =>
+        busy(b, async () => {
+          toast((await approveUser(b.dataset.u)).msg);
+          draw();
+        })
+      )
     );
     pWrap.querySelectorAll(".nope-btn").forEach((b) =>
-      b.addEventListener("click", () => {
-        if (!confirm(`Remove ${b.dataset.u}'s sign-up?`)) return;
-        toast(declineUser(b.dataset.u).msg);
-        draw();
-      })
+      b.addEventListener("click", () =>
+        busy(b, async () => {
+          if (!confirm(`Remove ${b.dataset.u}'s sign-up?`)) return;
+          toast((await declineUser(b.dataset.u)).msg);
+          draw();
+        })
+      )
     );
 
     // Friends with give/take coins
@@ -656,20 +824,24 @@ function initAdmin() {
       : `<p class="hint">No friends have registered yet.</p>`;
 
     fWrap.querySelectorAll(".give-btn").forEach((b) =>
-      b.addEventListener("click", () => {
-        adminAddCoins(b.dataset.u, 50);
-        toast(`Gave ${COIN} 50 to ${b.dataset.u}`);
-        renderNav("admin");
-        draw();
-      })
+      b.addEventListener("click", () =>
+        busy(b, async () => {
+          await adminAddCoins(b.dataset.u, 50);
+          toast(`Gave ${COIN} 50 to ${b.dataset.u}`);
+          renderNav("admin");
+          draw();
+        })
+      )
     );
     fWrap.querySelectorAll(".take-btn").forEach((b) =>
-      b.addEventListener("click", () => {
-        adminAddCoins(b.dataset.u, -50);
-        toast(`Took ${COIN} 50 from ${b.dataset.u}`);
-        renderNav("admin");
-        draw();
-      })
+      b.addEventListener("click", () =>
+        busy(b, async () => {
+          await adminAddCoins(b.dataset.u, -50);
+          toast(`Took ${COIN} 50 from ${b.dataset.u}`);
+          renderNav("admin");
+          draw();
+        })
+      )
     );
 
     // All toys
@@ -714,20 +886,26 @@ function initAdmin() {
 
   const setAllBtn = document.getElementById("setAllBtn");
   setAllBtn.textContent = `Set everyone to ${COIN} ${START_BALANCE}`;
-  setAllBtn.addEventListener("click", () => {
-    if (!confirm(`Give every account exactly ${COIN} ${START_BALANCE}? Their current coins are replaced.`)) return;
-    toast(adminSetAllCoins(START_BALANCE).msg);
-    renderNav("admin");
-    draw();
-  });
+  setAllBtn.addEventListener("click", () =>
+    busy(setAllBtn, async () => {
+      if (!confirm(`Give every account exactly ${COIN} ${START_BALANCE}? Their current coins are replaced.`)) return;
+      toast((await adminSetAllCoins(START_BALANCE)).msg);
+      renderNav("admin");
+      draw();
+    })
+  );
 
-  document.getElementById("resetBtn").addEventListener("click", () => {
-    if (!confirm("Really erase EVERYTHING on this device? This cannot be undone.")) return;
-    adminResetAll();
-    toast("All data cleared.");
-    setTimeout(() => (location.href = "index.html"), 700);
-  });
+  const resetBtn = document.getElementById("resetBtn");
+  resetBtn.addEventListener("click", () =>
+    busy(resetBtn, async () => {
+      if (!confirm("Really erase EVERYTHING for EVERYONE? This cannot be undone.")) return;
+      await adminResetAll();
+      toast("All data cleared.");
+      setTimeout(() => (location.href = "index.html"), 700);
+    })
+  );
 
+  _redraw = draw;
   draw();
 }
 
