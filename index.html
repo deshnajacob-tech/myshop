@@ -3,29 +3,21 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Deshna's Delights — Handpicked Gifts</title>
+  <title>Deshna's Toy Trade — Swap toys with friends</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
 </head>
-<body>
-  <!-- Header -->
+<body data-page="home">
   <header class="site-header">
     <div class="container nav">
       <a class="brand" href="index.html">
         <span class="logo">D</span>
-        <span class="brand-text">
-          <b>Deshna's Delights</b>
-          <span>HANDPICKED GIFTS</span>
-        </span>
+        <span class="brand-text"><b>Deshna's Toy Trade</b><span>SWAP · TRADE · SMILE</span></span>
       </a>
-      <nav class="nav-links">
-        <a href="#gifts">Gifts</a>
-        <a href="#why" class="hide-sm">Why us</a>
-        <a href="#about" class="hide-sm">About</a>
-        <a class="btn small" href="admin.html">+ Add a Gift</a>
-      </nav>
+      <nav class="nav-links" id="navLinks"></nav>
+      <div class="nav-auth" id="navAuth"></div>
     </div>
   </header>
 
@@ -33,109 +25,94 @@
   <section class="hero">
     <div class="container hero-grid">
       <div>
-        <h1>Little gifts, <span class="accent">big smiles</span> ✨</h1>
-        <p>Welcome to Deshna's Delights — a cosy corner of handpicked gifts, made and chosen with love. Find something special for someone special.</p>
+        <h1>Trade your <span class="accent">bored toys</span> with friends 🧸</h1>
+        <p>Give away toys you've outgrown and grab ones you'll love — all with virtual coins.
+           No real money. You just meet up and swap in person!</p>
         <div class="hero-actions">
-          <a class="btn" href="#gifts">Browse Gifts</a>
-          <a class="btn ghost" href="admin.html">Add Your Own</a>
+          <a class="btn" href="#join">Join the fun</a>
+          <a class="btn ghost" href="market.html">See the toys</a>
         </div>
       </div>
-      <div class="hero-art">
-        <div class="big-gift floaty">🎁</div>
+
+      <div id="authWrap">
+        <div class="panel auth-panel">
+          <div class="tabs">
+            <button class="tab active" data-target="loginPanel">Log in</button>
+            <button class="tab" data-target="registerPanel">Register</button>
+          </div>
+
+          <div class="tab-panel active" id="loginPanel">
+            <form id="loginForm">
+              <div class="field">
+                <label for="logName">Your name</label>
+                <input type="text" id="logName" placeholder="e.g. Aria" autocomplete="off" required />
+              </div>
+              <div class="field">
+                <label for="logPin">4-digit PIN</label>
+                <input type="password" id="logPin" inputmode="numeric" pattern="\d{4}" maxlength="4" placeholder="••••" required />
+              </div>
+              <button class="btn" type="submit" style="width:100%">Log in</button>
+            </form>
+          </div>
+
+          <div class="tab-panel" id="registerPanel">
+            <form id="registerForm">
+              <div class="field">
+                <label for="regName">Pick a name</label>
+                <input type="text" id="regName" placeholder="e.g. Aria" autocomplete="off" required />
+              </div>
+              <div class="field">
+                <label for="regPin">Create a 4-digit PIN</label>
+                <input type="password" id="regPin" inputmode="numeric" pattern="\d{4}" maxlength="4" placeholder="••••" required />
+                <small class="hint">Numbers only — you'll use this to log in.</small>
+              </div>
+              <button class="btn" type="submit" style="width:100%">Register & get 🪙 500</button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- shown when already logged in -->
+      <div id="welcomeBack" class="panel auth-panel" style="display:none;text-align:center">
+        <div style="font-size:52px">🧸</div>
+        <h2 style="margin:8px 0">Hey <span id="wbName"></span>!</h2>
+        <p class="hint">Your wallet: <b id="wbBalance"></b></p>
+        <div class="hero-actions" style="justify-content:center;margin-top:16px">
+          <a class="btn" href="market.html">Go to Marketplace</a>
+          <a class="btn ghost" href="mytoys.html">List a Toy</a>
+        </div>
       </div>
     </div>
   </section>
 
-  <!-- Gifts -->
-  <section class="section" id="gifts">
+  <!-- How it works -->
+  <section class="section" id="join">
     <div class="container">
       <div class="section-head">
-        <h2>Our Gift Collection</h2>
-        <p>Tap any gift to see more. Prices shown are just for this prototype.</p>
-      </div>
-      <div class="filters" id="filters"></div>
-      <div class="grid" id="giftGrid"></div>
-    </div>
-  </section>
-
-  <!-- Why us -->
-  <section class="section" id="why" style="background:var(--blush)">
-    <div class="container">
-      <div class="section-head">
-        <h2>Why Deshna's Delights?</h2>
-        <p>Made by a student, for people who love thoughtful things.</p>
+        <h2>How it works</h2>
+        <p>Four easy steps to swap toys with your friends.</p>
       </div>
       <div class="features">
-        <div class="feature"><div class="ico">💝</div><h3>Handpicked</h3><p>Every gift is chosen or made with care and a little bit of magic.</p></div>
-        <div class="feature"><div class="ico">🎀</div><h3>Cute Wrapping</h3><p>Each order comes beautifully wrapped, ready to gift.</p></div>
-        <div class="feature"><div class="ico">🌱</div><h3>Made Local</h3><p>Supporting small, homemade and student-made creations.</p></div>
-        <div class="feature"><div class="ico">😊</div><h3>Made to Smile</h3><p>Our only goal — to put a smile on someone's face.</p></div>
+        <div class="feature"><div class="ico">📝</div><h3>1. Register</h3><p>Sign up with your name and a 4-digit PIN. You start with 🪙 500.</p></div>
+        <div class="feature"><div class="ico">📸</div><h3>2. List toys</h3><p>Add photos of toys you're bored with and set a coin price.</p></div>
+        <div class="feature"><div class="ico">🙋</div><h3>3. Ask to buy</h3><p>See a toy you like? Ask to buy it. The owner says yes or no.</p></div>
+        <div class="feature"><div class="ico">🤝</div><h3>4. Meet up</h3><p>When they say yes, coins move. Swap the real toys when you meet!</p></div>
+      </div>
+      <div class="note" style="max-width:640px;margin:26px auto 0;text-align:center">
+        💡 This is a friendly prototype. All accounts and coins are saved <b>on this device only</b>,
+        so it's perfect for a group sharing one computer. Only the virtual coins are tracked here —
+        real toys are handed over in person.
       </div>
     </div>
   </section>
 
-  <!-- About -->
-  <section class="section" id="about">
-    <div class="container hero-grid">
-      <div class="hero-art" style="background:linear-gradient(135deg,#fff,#efe2fb)">
-        <div class="big-gift floaty">🌸</div>
-      </div>
-      <div>
-        <h2>Hi, I'm Deshna 👋</h2>
-        <p style="color:var(--muted);font-size:17px;margin:14px 0">
-          I'm a secondary school student who loves art, cute things, and making
-          people happy. Deshna's Delights started as a little project to share
-          the gifts I adore. This site is a prototype — no real payments yet,
-          just a peek into my dream gift shop!
-        </p>
-        <a class="btn" href="#gifts">See my gifts</a>
-      </div>
-    </div>
-  </section>
-
-  <!-- Modal -->
-  <div class="modal-overlay" id="modal">
-    <div class="modal" id="modalCard" style="position:relative">
-      <button class="modal-close" id="modalClose">&times;</button>
-      <div class="modal-img"><img id="mImg" src="" alt="" /></div>
-      <div class="modal-info">
-        <span class="card-cat" id="mCat"></span>
-        <h3 class="card-title" id="mTitle"></h3>
-        <p class="card-desc" id="mDesc"></p>
-        <div class="card-badges" id="mBadges" style="position:static;margin:14px 0"></div>
-        <div class="card-foot">
-          <span class="price" id="mPrice"></span>
-          <a class="btn small" id="mBuy" href="#">✉ Contact to Buy</a>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Footer -->
   <footer class="footer">
-    <div class="container footer-grid">
-      <div>
-        <h4>Deshna's Delights</h4>
-        <p>Handpicked gifts, wrapped with love. A student-made prototype gift shop. 🎁</p>
-      </div>
-      <div>
-        <h4>Explore</h4>
-        <a href="#gifts">Gifts</a>
-        <a href="#about">About</a>
-        <a href="admin.html">Add a Gift</a>
-      </div>
-      <div>
-        <h4>Say hi</h4>
-        <p>Want to buy a gift? Email me!</p>
-        <a href="mailto:deshnajacob@gmail.com">deshnajacob@gmail.com</a>
-        <p>Made with 💜 by Deshna</p>
-      </div>
-    </div>
     <div class="container footer-bottom">
-      © <span id="year"></span> Deshna's Delights · Prototype only, no real purchases.
+      © <span id="year"></span> Deshna's Toy Trade · Virtual coins only · Made with 💜 by Deshna
     </div>
   </footer>
 
-  <script src="js/main.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/app.js"></script>
 </body>
 </html>

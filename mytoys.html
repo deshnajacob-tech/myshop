@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Toys — Deshna's Toy Trade</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body data-page="mytoys">
+  <header class="site-header">
+    <div class="container nav">
+      <a class="brand" href="index.html">
+        <span class="logo">D</span>
+        <span class="brand-text"><b>Deshna's Toy Trade</b><span>SWAP · TRADE · SMILE</span></span>
+      </a>
+      <nav class="nav-links" id="navLinks"></nav>
+      <div class="nav-auth" id="navAuth"></div>
+    </div>
+  </header>
+
+  <section class="section">
+    <div class="container">
+      <div class="section-head">
+        <h2>My Toys 🧸</h2>
+        <p>List a bored toy for your friends, and manage your listings.</p>
+      </div>
+
+      <!-- Requests from friends -->
+      <div class="panel request-panel" id="requestPanel" style="display:none">
+        <h2>🙋 Friends want your toys!</h2>
+        <p class="hint">Say yes to sell (you get the coins) or no thanks.</p>
+        <div class="admin-list" id="requestList"></div>
+      </div>
+
+      <div class="admin-wrap">
+        <!-- List a toy -->
+        <div class="panel">
+          <h2>List a Toy for Trade</h2>
+          <p class="hint">Add a photo, set a coin price, and it appears in the marketplace.</p>
+          <form id="toyForm">
+            <div class="field">
+              <label for="toyName">Toy name *</label>
+              <input type="text" id="toyName" required placeholder="e.g. Remote Control Car" />
+            </div>
+            <div class="row2">
+              <div class="field">
+                <label for="toyPrice">Price (coins) *</label>
+                <input type="number" id="toyPrice" required min="0" step="1" placeholder="120" />
+              </div>
+              <div class="field">
+                <label for="toyCategory">Category</label>
+                <input type="text" id="toyCategory" list="cats" placeholder="Cars" />
+                <datalist id="cats">
+                  <option value="Cars"></option>
+                  <option value="Dolls"></option>
+                  <option value="Building Blocks"></option>
+                  <option value="Board Games"></option>
+                  <option value="Soft Toys"></option>
+                  <option value="Puzzles"></option>
+                  <option value="Action Figures"></option>
+                </datalist>
+              </div>
+            </div>
+            <div class="field">
+              <label>Condition *</label>
+              <div style="display:flex;gap:20px;font-size:15px">
+                <label style="font-weight:400"><input type="radio" name="condition" value="used" checked /> Used</label>
+                <label style="font-weight:400"><input type="radio" name="condition" value="new" /> Like new</label>
+              </div>
+            </div>
+            <div class="field">
+              <label for="toyDesc">Description</label>
+              <textarea id="toyDesc" placeholder="Tell your friends about this toy..."></textarea>
+            </div>
+            <div class="field">
+              <label for="toyImage">Photo</label>
+              <input type="file" id="toyImage" accept="image/*" />
+            </div>
+            <div class="field">
+              <div class="preview-box" id="previewBox"><span>Photo preview</span></div>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn">List Toy</button>
+              <button type="reset" class="btn ghost">Clear</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- My listings -->
+        <div class="panel">
+          <h2>Your Listings</h2>
+          <p class="hint">Available toys can be removed. Sold toys stay in your history.</p>
+          <div class="admin-list" id="myList"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container footer-bottom">
+      © <span id="year"></span> Deshna's Toy Trade · Virtual coins only · Made with 💜 by Deshna
+    </div>
+  </footer>
+
+  <script src="js/store.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

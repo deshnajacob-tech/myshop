@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>History — Deshna's Toy Trade</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body data-page="history">
+  <header class="site-header">
+    <div class="container nav">
+      <a class="brand" href="index.html">
+        <span class="logo">D</span>
+        <span class="brand-text"><b>Deshna's Toy Trade</b><span>SWAP · TRADE · SMILE</span></span>
+      </a>
+      <nav class="nav-links" id="navLinks"></nav>
+      <div class="nav-auth" id="navAuth"></div>
+    </div>
+  </header>
+
+  <section class="section">
+    <div class="container">
+      <div class="section-head">
+        <h2>My Trading History 📜</h2>
+        <p>Everything you've bought and sold, and your coin summary.</p>
+      </div>
+
+      <div class="stats">
+        <div class="stat"><span class="stat-label">Wallet</span><span class="stat-val" id="statBalance">🪙 0</span></div>
+        <div class="stat"><span class="stat-label">Earned selling</span><span class="stat-val" id="statEarned">🪙 0</span></div>
+        <div class="stat"><span class="stat-label">Spent buying</span><span class="stat-val" id="statSpent">🪙 0</span></div>
+        <div class="stat"><span class="stat-label">Toys traded</span><span class="stat-val" id="statTraded">0</span></div>
+      </div>
+
+      <div class="admin-wrap">
+        <!-- Send coins -->
+        <div class="panel">
+          <h2>💝 Send Coins to a Friend</h2>
+          <p class="hint">Share some of your coins as a gift.</p>
+          <form id="sendForm">
+            <div class="field">
+              <label for="sendTo">Send to</label>
+              <select id="sendTo"></select>
+            </div>
+            <div class="field">
+              <label for="sendAmount">How many coins?</label>
+              <input type="number" id="sendAmount" min="1" step="1" placeholder="50" />
+            </div>
+            <button type="submit" class="btn" style="width:100%">Send Coins 💝</button>
+          </form>
+        </div>
+
+        <!-- My asks -->
+        <div class="panel">
+          <h2>🙋 My Asks</h2>
+          <p class="hint">Toys you asked to buy. Wait for a friend to say yes!</p>
+          <div class="admin-list" id="myAsks"></div>
+        </div>
+      </div>
+
+      <div class="admin-wrap">
+        <div class="panel">
+          <h2>🛍️ Bought</h2>
+          <p class="hint">Toys you bought from friends — collect them in person.</p>
+          <div class="admin-list" id="boughtList"></div>
+        </div>
+        <div class="panel">
+          <h2>💰 Sold</h2>
+          <p class="hint">Toys you sold — hand them over when you meet.</p>
+          <div class="admin-list" id="soldList"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container footer-bottom">
+      © <span id="year"></span> Deshna's Toy Trade · Virtual coins only · Made with 💜 by Deshna
+    </div>
+  </footer>
+
+  <script src="js/store.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

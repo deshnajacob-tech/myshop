@@ -3,132 +3,70 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Add a Gift — Deshna's Delights</title>
+  <title>Admin — Deshna's Toy Trade</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
 </head>
-<body>
-  <!-- Header -->
+<body data-page="admin">
   <header class="site-header">
     <div class="container nav">
       <a class="brand" href="index.html">
         <span class="logo">D</span>
-        <span class="brand-text">
-          <b>Deshna's Delights</b>
-          <span>HANDPICKED GIFTS</span>
-        </span>
+        <span class="brand-text"><b>Deshna's Toy Trade</b><span>SWAP · TRADE · SMILE</span></span>
       </a>
-      <nav class="nav-links">
-        <a href="index.html">Home</a>
-        <a href="index.html#gifts" class="hide-sm">Gifts</a>
-        <a class="btn small" href="index.html">View Shop</a>
-      </nav>
+      <nav class="nav-links" id="navLinks"></nav>
+      <div class="nav-auth" id="navAuth"></div>
     </div>
   </header>
 
   <section class="section">
     <div class="container">
       <div class="section-head">
-        <h2>Add a New Gift 🎁</h2>
-        <p>Fill in the details, pick an image, and add it to your shop.</p>
+        <h2>Admin Dashboard 👑</h2>
+        <p>Only you can see this, Deshna. Manage friends, coins and trades.</p>
       </div>
 
-      <div class="admin-wrap">
-        <!-- Form -->
+      <div class="stats">
+        <div class="stat"><span class="stat-label">Friends</span><span class="stat-val" id="aFriends">0</span></div>
+        <div class="stat"><span class="stat-label">Toys listed</span><span class="stat-val" id="aToys">0</span></div>
+        <div class="stat"><span class="stat-label">Trades done</span><span class="stat-val" id="aTrades">0</span></div>
+        <div class="stat"><span class="stat-label">Coins in play</span><span class="stat-val" id="aCoins">🪙 0</span></div>
+      </div>
+
+      <div class="panel">
+        <h2>👥 Friends</h2>
+        <p class="hint">Give or take coins with the + / − buttons.</p>
+        <div class="admin-list" id="friendList"></div>
+      </div>
+
+      <div class="admin-wrap" style="margin-top:22px">
         <div class="panel">
-          <h2>Gift Details</h2>
-          <p class="hint">New gifts appear instantly in your shop (saved in this browser).</p>
-
-          <form id="giftForm">
-            <div class="field">
-              <label for="name">Gift name *</label>
-              <input type="text" id="name" required placeholder="e.g. Sunshine Scented Candle" />
-            </div>
-
-            <div class="row2">
-              <div class="field">
-                <label for="price">Price (₹) *</label>
-                <input type="number" id="price" required min="0" step="1" placeholder="349" />
-              </div>
-              <div class="field">
-                <label for="category">Category</label>
-                <input type="text" id="category" list="cats" placeholder="Home & Decor" />
-                <datalist id="cats">
-                  <option value="Home & Decor"></option>
-                  <option value="Kitchen"></option>
-                  <option value="Jewellery"></option>
-                  <option value="Stationery"></option>
-                  <option value="Toys"></option>
-                </datalist>
-              </div>
-            </div>
-
-            <div class="field">
-              <label for="description">Description</label>
-              <textarea id="description" placeholder="A little something about this gift..."></textarea>
-            </div>
-
-            <div class="field">
-              <label>Tags (optional)</label>
-              <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:14px">
-                <label style="font-weight:400"><input type="checkbox" value="new" class="tag-cb" /> new</label>
-                <label style="font-weight:400"><input type="checkbox" value="bestseller" class="tag-cb" /> bestseller</label>
-                <label style="font-weight:400"><input type="checkbox" value="handmade" class="tag-cb" /> handmade</label>
-              </div>
-            </div>
-
-            <div class="field">
-              <label for="image">Gift image</label>
-              <input type="file" id="image" accept="image/*" />
-            </div>
-
-            <div class="field">
-              <div class="preview-box" id="previewBox"><span>Image preview</span></div>
-            </div>
-
-            <div class="form-actions">
-              <button type="submit" class="btn">Add Gift to Shop</button>
-              <button type="reset" class="btn ghost">Clear</button>
-            </div>
-          </form>
-
-          <div class="note">
-            <b>How saving works (prototype):</b> Added gifts are stored in your browser so
-            they show up right away. To make them permanent for everyone, click
-            <b>Download gifts.json</b> below and replace <code>data/gifts.json</code>,
-            and save your images into the <code>images/</code> folder.
-          </div>
+          <h2>🧸 All Toys</h2>
+          <div class="admin-list" id="allToys"></div>
         </div>
-
-        <!-- Added list + export -->
         <div class="panel">
-          <h2>Gifts You've Added</h2>
-          <p class="hint">These are stored in this browser only.</p>
-          <div class="admin-list" id="addedList"></div>
-
-          <div class="form-actions" style="margin-top:22px">
-            <button class="btn" id="downloadBtn">⬇ Download gifts.json</button>
-            <button class="btn ghost" id="clearAllBtn">Clear my additions</button>
-          </div>
-          <div class="note">
-            The download combines the shop's original gifts <em>and</em> your added ones
-            into a single <code>data/gifts.json</code> you can save to the project.
-          </div>
+          <h2>📜 All Trades</h2>
+          <div class="admin-list" id="allTrades"></div>
         </div>
+      </div>
+
+      <div class="panel" style="margin-top:22px">
+        <h2>⚠️ Danger Zone</h2>
+        <p class="hint">This erases every friend, toy, coin and trade on this device.</p>
+        <button class="btn ghost" id="resetBtn" style="border-color:#f0a9a9;color:#c0392b">Reset everything</button>
       </div>
     </div>
   </section>
 
-  <div class="toast" id="toast"></div>
-
   <footer class="footer">
     <div class="container footer-bottom">
-      © <span id="year"></span> Deshna's Delights · Prototype only, no real purchases.
+      © <span id="year"></span> Deshna's Toy Trade · Virtual coins only · Made with 💜 by Deshna
     </div>
   </footer>
 
-  <script src="js/admin.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/app.js"></script>
 </body>
 </html>
