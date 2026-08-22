@@ -663,6 +663,40 @@ export function resizeImage(file, maxDim, cb) {
 }
 
 /* ---------- shared navigation ---------- */
+// The ☰ button for phones. Built once, then reused on every redraw.
+function _setupMenuButton(links) {
+  const bar = links.parentElement;
+  if (!bar || bar.querySelector(".nav-toggle")) return;
+
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "nav-toggle";
+  toggle.setAttribute("aria-label", "Open menu");
+  toggle.setAttribute("aria-expanded", "false");
+  toggle.setAttribute("aria-controls", "navLinks");
+  toggle.textContent = "☰";
+  bar.appendChild(toggle);
+
+  const setOpen = (open) => {
+    links.classList.toggle("open", open);
+    toggle.setAttribute("aria-expanded", open ? "true" : "false");
+    toggle.setAttribute("aria-label", open ? "Close menu" : "Open menu");
+    toggle.textContent = open ? "✕" : "☰";
+  };
+
+  toggle.addEventListener("click", () => setOpen(!links.classList.contains("open")));
+  links.addEventListener("click", (e) => {
+    if (e.target.closest("a")) setOpen(false);
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") setOpen(false);
+  });
+  // Tapping anywhere else closes it.
+  document.addEventListener("click", (e) => {
+    if (links.classList.contains("open") && !bar.contains(e.target)) setOpen(false);
+  });
+}
+
 // Pages that require login. Redirects to index.html if logged out.
 export function requireAuth() {
   if (!currentUser()) {
@@ -678,23 +712,32 @@ export function renderNav(activePage) {
   const links = document.getElementById("navLinks");
   if (!authArea || !links) return;
 
-  // Show a little count when friends are waiting for a swap answer.
+  // Little red counts, so nobody misses a friend waiting on them.
   const waitingSwaps = user ? swapsForOwner(user.username).length : 0;
+  const waitingAsks = user ? requestsForSeller(user.username).length : 0;
+  const waitingFriends = isAdmin(user) ? getPendingUsers().length : 0;
 
   const linkDefs = [
-    { href: "index.html", label: "🏠 Home", page: "home" },
-    { href: "market.html", label: "🛒 Toys", page: "market" },
-    { href: "trade.html", label: `🔄 Trading Board${waitingSwaps ? ` (${waitingSwaps})` : ""}`, page: "trade" },
-    { href: "mytoys.html", label: "🧸 My Toys", page: "mytoys" },
-    { href: "history.html", label: "🎒 My Stuff", page: "history" },
+    { href: "index.html", icon: "🏠", label: "Home", page: "home" },
+    { href: "market.html", icon: "🛒", label: "Toys", page: "market" },
+    { href: "trade.html", icon: "🔄", label: "Trading Board", page: "trade", count: waitingSwaps },
+    { href: "mytoys.html", icon: "🧸", label: "My Toys", page: "mytoys", count: waitingAsks },
+    { href: "history.html", icon: "🎒", label: "My Stuff", page: "history" },
   ];
-  if (isAdmin(user)) linkDefs.push({ href: "admin.html", label: "👑 Admin", page: "admin" });
+  if (isAdmin(user))
+    linkDefs.push({ href: "admin.html", icon: "👑", label: "Admin", page: "admin", count: waitingFriends });
+
   links.innerHTML = linkDefs
     .map(
-      (l) =>
-        `<a href="${l.href}" class="${l.page === activePage ? "active-link" : ""} ${l.page !== "home" ? "hide-sm" : ""}">${l.label}</a>`
+      (l) => `<a href="${l.href}" class="nav-item${l.page === activePage ? " active-link" : ""}"
+         title="${l.label}" aria-label="${l.label}">
+        <span class="nav-ico">${l.icon}</span><span class="nav-text">${l.label}</span>
+        ${l.count ? `<span class="nav-badge" title="${l.count} waiting for you">${l.count}</span>` : ""}
+      </a>`
     )
     .join("");
+
+  _setupMenuButton(links);
 
   if (user) {
     authArea.innerHTML = `
