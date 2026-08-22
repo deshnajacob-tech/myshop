@@ -473,7 +473,15 @@ async function _cancelPendingFor(itemIds, keepSwapId, keepRequestId) {
     }
   });
 
-  if (touched) await batch.commit();
+  // Tidying up is never worth failing a finished trade over — if one of these
+  // rows vanished a moment ago the batch throws, and that's fine.
+  if (touched) {
+    try {
+      await batch.commit();
+    } catch (e) {
+      console.error("tidy-up failed", e);
+    }
+  }
 }
 
 /* ---------- sending coins (gift) ---------- */

@@ -87,6 +87,9 @@ nothing else to set up and no paid Firebase Storage needed.
 
 ## Setting up your Firebase database (do this once)
 
+> ✅ **Already done for this repo** — it points at the Firebase project `myshop-2d5ff`.
+> These steps are only needed if you ever start a fresh project.
+
 1. Go to [console.firebase.google.com](https://console.firebase.google.com) and
    **Add project** (any name, e.g. `friends-trading-centre`). Google Analytics is
    not needed. The free **Spark** plan is plenty — no card required.

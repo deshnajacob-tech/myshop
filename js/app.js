@@ -149,6 +149,9 @@ async function busy(btn, work) {
   btn.disabled = true;
   try {
     await work();
+  } catch (err) {
+    console.error(err);
+    toast("Couldn't reach the internet. Try again. 📡");
   } finally {
     btn.disabled = false;
   }

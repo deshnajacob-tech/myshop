@@ -11,12 +11,12 @@
    ============================================================ */
 
 export const firebaseConfig = {
-  apiKey: "PASTE_YOUR_API_KEY",
-  authDomain: "PASTE_YOUR_PROJECT.firebaseapp.com",
-  projectId: "PASTE_YOUR_PROJECT_ID",
-  storageBucket: "PASTE_YOUR_PROJECT.appspot.com",
-  messagingSenderId: "PASTE_SENDER_ID",
-  appId: "PASTE_APP_ID",
+  apiKey: "AIzaSyB6q3RVN4cVCilqd2R92rDtiJrHoIRp-Kc",
+  authDomain: "myshop-2d5ff.firebaseapp.com",
+  projectId: "myshop-2d5ff",
+  storageBucket: "myshop-2d5ff.firebasestorage.app", // not used — photos live in Firestore
+  messagingSenderId: "927960366780",
+  appId: "1:927960366780:web:58d54f1e20de96ac925ab9",
 };
 
 // True once the placeholders above have been replaced with real values.
