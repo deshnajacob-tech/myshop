@@ -1,10 +1,10 @@
 /* ============================================================
-   Deshna's Toy Trade — shared data & auth layer
+   Friends Trading Centre — shared data & auth layer
    All data lives in this browser's localStorage (no server).
    Friends share one device and each log in with their 4-digit PIN.
    ============================================================ */
 
-const SITE_NAME = "Deshna's Toy Trade";
+const SITE_NAME = "Friends Trading Centre";
 const COIN = "🪙";
 const START_BALANCE = 50;
 const ADMIN_NAME = "deshna"; // this friend gets the admin dashboard
@@ -458,6 +458,15 @@ function declineUser(username) {
   if (u.status !== "pending") return { ok: false, msg: "You can only decline friends who are still waiting." };
   _save(KEYS.users, users.filter((x) => x.username !== username));
   return { ok: true, msg: `${username}'s sign-up was removed.` };
+}
+
+// Put every single account back on the same number of coins.
+function adminSetAllCoins(amount) {
+  amount = Math.max(0, Math.round(Number(amount) || 0));
+  const users = getUsers();
+  users.forEach((u) => (u.balance = amount));
+  _save(KEYS.users, users);
+  return { ok: true, msg: `Everyone now has ${COIN} ${amount}. 🪙` };
 }
 
 function adminAddCoins(username, amount) {

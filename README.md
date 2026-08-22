@@ -1,4 +1,4 @@
-# Deshna's Toy Trade 🧸
+# Friends Trading Centre 🧸
 
 A simple, attractive **static website for trading toys with friends** using virtual
 coins — no real money, no database, no backend. Just HTML, CSS and JavaScript.
@@ -18,7 +18,8 @@ You buy and sell with virtual coins on the site; the actual toys are handed over
 - 🔄 **Trading Board** — swap a toy straight for another toy, fidget-trading style (no coins)
 - 💝 **Send coins** — gift coins to a friend
 - 📜 **History page** — bought, sold, your asks, and a coin summary
-- 👑 **Admin dashboard** (for Deshna) — accept/decline sign-ups, see all friends, top up/take coins, view all toys & trades, reset everything
+- 👑 **Admin dashboard** (for Deshna) — accept/decline sign-ups, see all friends, top up/take coins,
+  **set everyone back to 🪙 50** with one button, view all toys & trades, reset everything
 - 🤝 Toys delivered in person — only the coins are tracked online
 
 ### The Trading Board 🔄

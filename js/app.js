@@ -1,5 +1,5 @@
 /* ============================================================
-   Deshna's Toy Trade — page logic
+   Friends Trading Centre — page logic
    Runs the right code based on <body data-page="...">
    ============================================================ */
 
@@ -711,6 +711,15 @@ function initAdmin() {
           .join("")
       : `<p class="hint">No trades yet.</p>`;
   }
+
+  const setAllBtn = document.getElementById("setAllBtn");
+  setAllBtn.textContent = `Set everyone to ${COIN} ${START_BALANCE}`;
+  setAllBtn.addEventListener("click", () => {
+    if (!confirm(`Give every account exactly ${COIN} ${START_BALANCE}? Their current coins are replaced.`)) return;
+    toast(adminSetAllCoins(START_BALANCE).msg);
+    renderNav("admin");
+    draw();
+  });
 
   document.getElementById("resetBtn").addEventListener("click", () => {
     if (!confirm("Really erase EVERYTHING on this device? This cannot be undone.")) return;
