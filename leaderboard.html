@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Leaderboard — Friends Trading Centre</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body data-page="leaderboard">
+  <header class="site-header">
+    <div class="container nav">
+      <a class="brand" href="index.html">
+        <span class="logo">F</span>
+        <span class="brand-text"><b>Friends Trading Centre</b><span>SWAP · TRADE · SMILE</span></span>
+      </a>
+      <nav class="nav-links" id="navLinks"></nav>
+      <div class="nav-auth" id="navAuth"></div>
+    </div>
+  </header>
+
+  <section class="section">
+    <div class="container">
+      <div class="section-head">
+        <h2>Leaderboard 🏆</h2>
+        <p>Whoever lists the most toys is top of the board. Add a toy to climb!</p>
+      </div>
+
+      <!-- Top three -->
+      <div class="podium" id="podium"></div>
+
+      <!-- Where I am + a nudge to climb -->
+      <div class="you-are" id="youAre" style="display:none"></div>
+
+      <div class="panel" style="margin-top:26px">
+        <h2>Everyone</h2>
+        <p class="hint">Ranked by toys listed. Trades done breaks a tie.</p>
+        <div class="admin-list" id="rankList"></div>
+        <div class="form-actions" style="margin-top:20px">
+          <a class="btn" href="mytoys.html">List another toy 🧸</a>
+          <a class="btn ghost" href="trade.html">Go to the Trading Board 🔄</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container footer-bottom">
+      © <span id="year"></span> Friends Trading Centre · Virtual coins only · Made with 💜 by Deshna
+    </div>
+  </footer>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

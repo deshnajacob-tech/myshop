@@ -51,6 +51,7 @@ import {
   sendCoins,
   boughtBy,
   soldBy,
+  leaderboard,
   getTxns,
   adminAddCoins,
   adminSetAllCoins,
@@ -107,6 +108,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (page === "trade") initTrade();
   if (page === "mytoys") initMyToys();
   if (page === "history") initHistory();
+  if (page === "leaderboard") initLeaderboard();
   if (page === "admin") initAdmin();
 });
 
@@ -739,6 +741,90 @@ function initHistory() {
 
   _redraw = drawEverything;
   drawEverything();
+}
+
+/* ============================================================
+   LEADERBOARD  (who has listed the most toys)
+   ============================================================ */
+function initLeaderboard() {
+  if (!requireAuth()) return;
+  const me = currentUser();
+  const MEDALS = ["🥇", "🥈", "🥉"];
+
+  function toys(n) {
+    return `${n} toy${n === 1 ? "" : "s"}`;
+  }
+
+  function draw() {
+    const board = leaderboard();
+    const podium = document.getElementById("podium");
+    const list = document.getElementById("rankList");
+    const youAre = document.getElementById("youAre");
+
+    // Nobody has listed anything yet — be encouraging, not empty.
+    if (!board.some((p) => p.listed > 0)) {
+      podium.innerHTML = "";
+      youAre.style.display = "none";
+      list.innerHTML = `<div class="empty">No toys listed yet 🧸<br/>
+        Be the very first — <a href="mytoys.html" style="color:var(--rose)">list a toy</a> and you're #1!</div>`;
+      return;
+    }
+
+    // Top three on the podium (silver, gold, bronze — gold in the middle)
+    const top = board.slice(0, 3);
+    const order = top.length === 3 ? [1, 0, 2] : top.length === 2 ? [1, 0] : [0];
+    podium.innerHTML = order
+      .map((idx) => {
+        const p = top[idx];
+        return `
+      <div class="podium-card place-${idx + 1}${p.username === me.username ? " is-me" : ""}">
+        <div class="podium-medal">${MEDALS[idx]}</div>
+        <div class="avatar big">${escapeHtml(p.username[0].toUpperCase())}</div>
+        <b>${escapeHtml(p.username)}</b>
+        <span class="podium-score">${toys(p.listed)}</span>
+        <small>${p.trades} trade${p.trades === 1 ? "" : "s"} done</small>
+      </div>`;
+      })
+      .join("");
+
+    // Where am I, and what would it take to climb one place?
+    const myIndex = board.findIndex((p) => p.username === me.username);
+    if (myIndex === -1) {
+      youAre.style.display = "none";
+    } else {
+      const mine = board[myIndex];
+      const above = board[myIndex - 1];
+      let nudge;
+      if (!above) {
+        nudge = `You're top of the board with ${toys(mine.listed)}. Keep listing to stay there! 👑`;
+      } else {
+        const gap = above.listed - mine.listed + 1;
+        nudge = `List ${gap} more toy${gap === 1 ? "" : "s"} to pass <b>${escapeHtml(above.username)}</b>! 🚀`;
+      }
+      youAre.style.display = "block";
+      youAre.innerHTML = `<b>You're #${myIndex + 1}</b> with ${toys(mine.listed)} listed. ${nudge}`;
+    }
+
+    // The full ranking
+    list.innerHTML = board
+      .map((p, i) => {
+        const badge = MEDALS[i] || `#${i + 1}`;
+        return `
+      <div class="mini rank-row${p.username === me.username ? " rank-me" : ""}">
+        <span class="rank-num">${badge}</span>
+        <div class="avatar">${escapeHtml(p.username[0].toUpperCase())}</div>
+        <div class="info">
+          <b>${escapeHtml(p.username)}${p.username === me.username ? " (you)" : ""}</b>
+          <small>${p.sold} sold · ${p.bought} bought · ${p.swapped} swapped</small>
+        </div>
+        <span class="rank-score">${p.listed}<small>toys</small></span>
+      </div>`;
+      })
+      .join("");
+  }
+
+  _redraw = draw;
+  draw();
 }
 
 /* ============================================================

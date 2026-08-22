@@ -191,6 +191,7 @@ export function getMarketItems(username) {
 export async function addItem({ owner, name, condition, category, price, description, image }) {
   const item = {
     owner,
+    listedBy: owner, // never changes, even after a swap — this is what the leaderboard counts
     name: (name || "").trim(),
     condition: condition || "used",
     category: (category || "Toy").trim(),
@@ -218,6 +219,25 @@ export async function deleteItem(id, owner) {
   await deleteDoc(_doc("items", id));
   await _cancelPendingFor([id]);
   return { ok: true };
+}
+
+/* ---------- leaderboard ---------- */
+// Who has put the most toys up for trade? Toys listed is the score;
+// trades done breaks a tie, then whoever joined first.
+export function leaderboard() {
+  const items = getItems();
+  const doneSwaps = getSwaps().filter((s) => s.status === "accepted");
+  const txns = getTxns();
+
+  return getApprovedUsers()
+    .map((u) => {
+      const listed = items.filter((i) => (i.listedBy || i.owner) === u.username).length;
+      const sold = txns.filter((t) => t.seller === u.username).length;
+      const bought = txns.filter((t) => t.buyer === u.username).length;
+      const swapped = doneSwaps.filter((s) => s.from === u.username || s.to === u.username).length;
+      return { username: u.username, listed, sold, bought, swapped, trades: sold + bought + swapped, joined: u.joined };
+    })
+    .sort((a, b) => b.listed - a.listed || b.trades - a.trades || a.joined.localeCompare(b.joined));
 }
 
 /* ---------- buy requests (ask → seller says yes/no) ---------- */
@@ -724,6 +744,7 @@ export function renderNav(activePage) {
     { href: "trade.html", icon: "🔄", label: "Trade", title: "Trading Board", page: "trade", count: waitingSwaps },
     { href: "mytoys.html", icon: "🧸", label: "My Toys", page: "mytoys", count: waitingAsks },
     { href: "history.html", icon: "🎒", label: "My Stuff", page: "history" },
+    { href: "leaderboard.html", icon: "🏆", label: "Leaders", title: "Leaderboard", page: "leaderboard" },
   ];
   if (isAdmin(user))
     linkDefs.push({ href: "admin.html", icon: "👑", label: "Admin", page: "admin", count: waitingFriends });

@@ -19,6 +19,8 @@ You buy and sell with virtual coins on the site; the actual toys are handed over
 - 🔄 **Trading Board** — swap a toy straight for another toy, fidget-trading style (no coins)
 - 💝 **Send coins** — gift coins to a friend
 - 📜 **History page** — bought, sold, your asks, and a coin summary
+- 🏆 **Leaderboard** — friends ranked by how many toys they've listed, with a podium and a
+  "list 2 more to pass Aria" nudge
 - 👑 **Admin dashboard** (for Deshna) — accept/decline sign-ups, see all friends, top up/take coins,
   **set everyone back to 🪙 50** with one button, view all toys & trades, reset everything
 - ☁️ **Works on any computer** — shared cloud database, updates live for everyone
@@ -58,6 +60,7 @@ myshop/
 ├── trade.html      ← Trading Board (swap toy for toy, no coins)
 ├── mytoys.html     ← List a toy + manage your listings
 ├── history.html    ← Your bought & sold history, send coins, your asks
+├── leaderboard.html ← Who has listed the most toys
 ├── admin.html      ← Admin dashboard (only shows for "deshna")
 ├── css/style.css   ← All the styling
 ├── firestore.rules ← Database rules to paste into the Firebase console
