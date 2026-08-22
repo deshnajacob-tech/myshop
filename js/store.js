@@ -717,10 +717,11 @@ export function renderNav(activePage) {
   const waitingAsks = user ? requestsForSeller(user.username).length : 0;
   const waitingFriends = isAdmin(user) ? getPendingUsers().length : 0;
 
+  // Short labels keep the bar on one line; the full name is the tooltip.
   const linkDefs = [
     { href: "index.html", icon: "🏠", label: "Home", page: "home" },
-    { href: "market.html", icon: "🛒", label: "Toys", page: "market" },
-    { href: "trade.html", icon: "🔄", label: "Trading Board", page: "trade", count: waitingSwaps },
+    { href: "market.html", icon: "🛒", label: "Toys", title: "Toy Marketplace", page: "market" },
+    { href: "trade.html", icon: "🔄", label: "Trade", title: "Trading Board", page: "trade", count: waitingSwaps },
     { href: "mytoys.html", icon: "🧸", label: "My Toys", page: "mytoys", count: waitingAsks },
     { href: "history.html", icon: "🎒", label: "My Stuff", page: "history" },
   ];
@@ -728,13 +729,14 @@ export function renderNav(activePage) {
     linkDefs.push({ href: "admin.html", icon: "👑", label: "Admin", page: "admin", count: waitingFriends });
 
   links.innerHTML = linkDefs
-    .map(
-      (l) => `<a href="${l.href}" class="nav-item${l.page === activePage ? " active-link" : ""}"
-         title="${l.label}" aria-label="${l.label}">
+    .map((l) => {
+      const full = l.title || l.label;
+      return `<a href="${l.href}" class="nav-item${l.page === activePage ? " active-link" : ""}"
+         title="${full}" aria-label="${full}">
         <span class="nav-ico">${l.icon}</span><span class="nav-text">${l.label}</span>
         ${l.count ? `<span class="nav-badge" title="${l.count} waiting for you">${l.count}</span>` : ""}
-      </a>`
-    )
+      </a>`;
+    })
     .join("");
 
   _setupMenuButton(links);
