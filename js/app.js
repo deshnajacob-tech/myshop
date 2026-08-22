@@ -12,6 +12,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (page === "home") initHome();
   if (page === "market") initMarket();
+  if (page === "trade") initTrade();
   if (page === "mytoys") initMyToys();
   if (page === "history") initHistory();
   if (page === "admin") initAdmin();
@@ -72,11 +73,11 @@ function initHome() {
       const name = document.getElementById("regName").value;
       const pin = document.getElementById("regPin").value;
       const res = register(name, pin);
+      toast(res.msg);
       if (res.ok) {
-        toast(res.msg);
-        setTimeout(() => (location.href = "market.html"), 700);
-      } else {
-        toast(res.msg);
+        // No login yet — Deshna has to accept them on the admin page first.
+        regForm.reset();
+        document.querySelector('.tab[data-target="loginPanel"]').click();
       }
     });
   }
@@ -177,6 +178,201 @@ function initMarket() {
   }
 
   draw();
+}
+
+/* ============================================================
+   TRADING BOARD  (toy for toy — no coins, like fidget trading)
+   ============================================================ */
+function initTrade() {
+  if (!requireAuth()) return;
+  const me = currentUser();
+
+  // A little "my toy 🔄 their toy" strip used in every offer row.
+  function pairRow(giveImg, giveName, getImg, getName, title, sub, buttons) {
+    return `
+      <div class="mini swap-row">
+        <div class="swap-pair">
+          <img src="${giveImg}" alt="${escapeHtml(giveName)}" onerror="this.src='images/placeholder.svg'" />
+          <span class="swap-arrow">🔄</span>
+          <img src="${getImg}" alt="${escapeHtml(getName)}" onerror="this.src='images/placeholder.svg'" />
+        </div>
+        <div class="info">
+          <b>${title}</b>
+          <small>${sub}</small>
+        </div>
+        <div class="yn">${buttons}</div>
+      </div>`;
+  }
+
+  // Offers other friends sent me
+  function drawInbox() {
+    const panel = document.getElementById("inboxPanel");
+    const wrap = document.getElementById("swapInbox");
+    const offers = swapsForOwner(me.username);
+    panel.style.display = offers.length ? "block" : "none";
+    if (!offers.length) return;
+
+    wrap.innerHTML = offers
+      .map((s) =>
+        pairRow(
+          s.giveImage,
+          s.giveName,
+          s.getImage,
+          s.getName,
+          `${escapeHtml(s.from)} wants to swap`,
+          `Their <b>${escapeHtml(s.giveName)}</b> for your <b>${escapeHtml(s.getName)}</b>`,
+          `<button class="btn small swap-yes" data-id="${s.id}">✅ Yes!</button>
+           <button class="btn small ghost swap-no" data-id="${s.id}">❌ No</button>`
+        )
+      )
+      .join("");
+
+    wrap.querySelectorAll(".swap-yes").forEach((b) =>
+      b.addEventListener("click", () => {
+        toast(acceptSwap(b.dataset.id, me.username).msg);
+        drawAll();
+      })
+    );
+    wrap.querySelectorAll(".swap-no").forEach((b) =>
+      b.addEventListener("click", () => {
+        toast(declineSwap(b.dataset.id, me.username).msg);
+        drawAll();
+      })
+    );
+  }
+
+  // Offers I sent out
+  function drawOutbox() {
+    const panel = document.getElementById("outboxPanel");
+    const wrap = document.getElementById("swapOutbox");
+    const mine = swapsByOfferer(me.username).filter((s) => s.status !== "accepted");
+    panel.style.display = mine.length ? "block" : "none";
+    if (!mine.length) return;
+
+    const labels = {
+      pending: `<span class="status sold">Waiting… ⏳</span>`,
+      declined: `<span class="status sold">Said no ❌</span>`,
+      cancelled: `<span class="status sold">You took it back</span>`,
+    };
+    wrap.innerHTML = mine
+      .map((s) =>
+        pairRow(
+          s.giveImage,
+          s.giveName,
+          s.getImage,
+          s.getName,
+          `You asked ${escapeHtml(s.to)}`,
+          `Your <b>${escapeHtml(s.giveName)}</b> for their <b>${escapeHtml(s.getName)}</b><br/>${labels[s.status] || s.status}`,
+          s.status === "pending"
+            ? `<button class="btn small ghost swap-cancel" data-id="${s.id}">Take back</button>`
+            : ""
+        )
+      )
+      .join("");
+
+    wrap.querySelectorAll(".swap-cancel").forEach((b) =>
+      b.addEventListener("click", () => {
+        toast(cancelSwap(b.dataset.id, me.username).msg);
+        drawAll();
+      })
+    );
+  }
+
+  // Everyone else's toys, each with a picker of my toys
+  function drawBoard() {
+    const grid = document.getElementById("tradeGrid");
+    const myToys = getItemsByOwner(me.username).filter((i) => i.status === "available");
+    const theirs = getMarketItems(me.username);
+
+    document.getElementById("noToysNote").style.display = myToys.length ? "none" : "block";
+
+    if (!theirs.length) {
+      grid.innerHTML = `<div class="empty">No toys to swap for right now 🧸<br/>
+        Ask your friends to list some in <a href="mytoys.html" style="color:var(--rose)">My Toys</a>!</div>`;
+      return;
+    }
+
+    grid.innerHTML = theirs
+      .map((i) => {
+        const options = myToys
+          .map(
+            (m) =>
+              `<option value="${m.id}" ${hasPendingSwap(m.id, i.id) ? "disabled" : ""}>${escapeHtml(m.name)}${
+                hasPendingSwap(m.id, i.id) ? " (already offered)" : ""
+              }</option>`
+          )
+          .join("");
+        const picker = myToys.length
+          ? `<div class="swap-pick">
+               <select class="give-pick" data-get="${i.id}" aria-label="Which of your toys?">${options}</select>
+               <button class="btn small offer-btn" data-get="${i.id}">Offer this swap 🔄</button>
+             </div>`
+          : `<div class="swap-pick"><button class="btn small ghost" disabled>List a toy first 🧸</button></div>`;
+
+        return `
+      <article class="card">
+        <div class="card-img">
+          <img src="${i.image}" alt="${escapeHtml(i.name)}" onerror="this.src='images/placeholder.svg'" />
+          <div class="card-badges">
+            <span class="badge ${i.condition === "new" ? "new" : "handmade"}">${i.condition}</span>
+          </div>
+        </div>
+        <div class="card-body">
+          <span class="card-cat">${escapeHtml(i.category)} · from ${escapeHtml(i.owner)}</span>
+          <h3 class="card-title">${escapeHtml(i.name)}</h3>
+          <p class="card-desc">${escapeHtml(i.description) || "No description."}</p>
+          ${picker}
+        </div>
+      </article>`;
+      })
+      .join("");
+
+    grid.querySelectorAll(".offer-btn").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        const getId = btn.dataset.get;
+        const select = grid.querySelector(`.give-pick[data-get="${getId}"]`);
+        const res = offerSwap(select.value, getId, me.username);
+        toast(res.msg);
+        if (res.ok) drawAll();
+      })
+    );
+  }
+
+  // Swaps that already happened
+  function drawHistory() {
+    const panel = document.getElementById("historyPanel");
+    const wrap = document.getElementById("swapHistory");
+    const done = swapHistoryFor(me.username);
+    panel.style.display = done.length ? "block" : "none";
+    if (!done.length) return;
+
+    wrap.innerHTML = done
+      .map((s) => {
+        const iGave = s.from === me.username ? s.giveName : s.getName;
+        const iGot = s.from === me.username ? s.getName : s.giveName;
+        const friend = s.from === me.username ? s.to : s.from;
+        return pairRow(
+          s.from === me.username ? s.giveImage : s.getImage,
+          iGave,
+          s.from === me.username ? s.getImage : s.giveImage,
+          iGot,
+          `Swapped with ${escapeHtml(friend)}`,
+          `You gave <b>${escapeHtml(iGave)}</b> and got <b>${escapeHtml(iGot)}</b> · ${timeAgo(s.doneAt || s.date)}`,
+          ""
+        );
+      })
+      .join("");
+  }
+
+  function drawAll() {
+    renderNav("trade"); // keeps the "(2)" swap count fresh
+    drawInbox();
+    drawOutbox();
+    drawBoard();
+    drawHistory();
+  }
+
+  drawAll();
 }
 
 /* ============================================================
@@ -326,7 +522,7 @@ function initHistory() {
   // Send-coins friend dropdown (everyone except me)
   const select = document.getElementById("sendTo");
   function fillFriends() {
-    const others = getUsers().filter((u) => u.username !== me.username);
+    const others = getApprovedUsers().filter((u) => u.username !== me.username);
     select.innerHTML = others.length
       ? others.map((u) => `<option value="${escapeHtml(u.username)}">${escapeHtml(u.username)}</option>`).join("")
       : `<option value="">No friends yet</option>`;
@@ -391,7 +587,8 @@ function initAdmin() {
   }
 
   function draw() {
-    const users = getUsers();
+    const users = getApprovedUsers();
+    const waiting = getPendingUsers();
     const items = getItems();
     const txns = getTxns();
 
@@ -399,6 +596,42 @@ function initAdmin() {
     document.getElementById("aToys").textContent = items.length;
     document.getElementById("aTrades").textContent = txns.length;
     document.getElementById("aCoins").textContent = coins(users.reduce((s, u) => s + u.balance, 0));
+
+    // Friends waiting to be let in
+    const pWrap = document.getElementById("pendingList");
+    document.getElementById("aPendingCount").textContent = waiting.length ? `(${waiting.length})` : "";
+    pWrap.innerHTML = waiting.length
+      ? waiting
+          .map(
+            (u) => `
+        <div class="mini">
+          <div class="avatar">${escapeHtml(u.username[0].toUpperCase())}</div>
+          <div class="info">
+            <b>${escapeHtml(u.username)}</b>
+            <small>asked to join ${timeAgo(u.joined)} · will start with ${coins(u.balance)}</small>
+          </div>
+          <div class="yn">
+            <button class="btn small ok-btn" data-u="${escapeHtml(u.username)}">✅ Yes!</button>
+            <button class="btn small ghost nope-btn" data-u="${escapeHtml(u.username)}">❌ No</button>
+          </div>
+        </div>`
+          )
+          .join("")
+      : `<p class="hint">Nobody is waiting right now. 🎈</p>`;
+
+    pWrap.querySelectorAll(".ok-btn").forEach((b) =>
+      b.addEventListener("click", () => {
+        toast(approveUser(b.dataset.u).msg);
+        draw();
+      })
+    );
+    pWrap.querySelectorAll(".nope-btn").forEach((b) =>
+      b.addEventListener("click", () => {
+        if (!confirm(`Remove ${b.dataset.u}'s sign-up?`)) return;
+        toast(declineUser(b.dataset.u).msg);
+        draw();
+      })
+    );
 
     // Friends with give/take coins
     const fWrap = document.getElementById("friendList");

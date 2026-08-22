@@ -6,14 +6,17 @@
 
 const SITE_NAME = "Deshna's Toy Trade";
 const COIN = "🪙";
-const START_BALANCE = 500;
+const START_BALANCE = 50;
 const ADMIN_NAME = "deshna"; // this friend gets the admin dashboard
+const ADMIN_DISPLAY_NAME = "Deshna";
+const ADMIN_PIN = "8351";
 
 const KEYS = {
   users: "dtt_users",
   items: "dtt_items",
   txns: "dtt_txns",
   requests: "dtt_requests",
+  swaps: "dtt_swaps",
   transfers: "dtt_transfers",
   session: "dtt_session",
 };
@@ -44,6 +47,18 @@ function findUser(username) {
   return getUsers().find((x) => x.username.toLowerCase() === u) || null;
 }
 
+// Everyone Deshna has already said yes to.
+function getApprovedUsers() {
+  return getUsers().filter((u) => u.status === "approved");
+}
+// Friends still waiting for Deshna to say yes.
+function getPendingUsers() {
+  return getUsers()
+    .filter((u) => u.status === "pending")
+    .sort((a, b) => a.joined.localeCompare(b.joined));
+}
+
+// New friends wait in line — Deshna accepts or declines them on the admin page.
 function register(username, pin) {
   username = (username || "").trim();
   if (username.length < 2) return { ok: false, msg: "Please pick a name (at least 2 letters)." };
@@ -51,16 +66,26 @@ function register(username, pin) {
   if (findUser(username)) return { ok: false, msg: "That name is already taken. Try another." };
 
   const users = getUsers();
-  users.push({ username, pin, balance: START_BALANCE, joined: new Date().toISOString() });
+  users.push({
+    username,
+    pin,
+    balance: START_BALANCE,
+    joined: new Date().toISOString(),
+    status: "pending",
+  });
   _save(KEYS.users, users);
-  _save(KEYS.session, username);
-  return { ok: true, msg: `Welcome, ${username}! You got ${START_BALANCE} coins to start.` };
+  return {
+    ok: true,
+    msg: `Thanks, ${username}! ${ADMIN_DISPLAY_NAME} has to say yes before you can log in. ⏳`,
+  };
 }
 
 function login(username, pin) {
   const user = findUser(username);
   if (!user) return { ok: false, msg: "No friend with that name. Register first!" };
   if (user.pin !== pin) return { ok: false, msg: "Wrong PIN. Try again." };
+  if (user.status === "pending")
+    return { ok: false, msg: `${ADMIN_DISPLAY_NAME} hasn't said yes to you yet. Please wait a bit! ⏳` };
   _save(KEYS.session, user.username);
   return { ok: true, msg: `Welcome back, ${user.username}!` };
 }
@@ -227,6 +252,9 @@ function _completeSale(item, buyerName, price) {
   it.soldAt = new Date().toISOString();
   _save(KEYS.items, items);
 
+  // A sold toy can't be swapped any more.
+  _cancelSwapsFor(it.id);
+
   const txns = getTxns();
   txns.push({
     id: "x" + Date.now(),
@@ -239,6 +267,149 @@ function _completeSale(item, buyerName, price) {
     date: new Date().toISOString(),
   });
   _save(KEYS.txns, txns);
+}
+
+/* ---------- trading board (toy for toy, no coins) ---------- */
+function getSwaps() {
+  return _load(KEYS.swaps, []);
+}
+
+// Offers waiting for me to say yes (someone wants one of my toys).
+function swapsForOwner(name) {
+  return getSwaps()
+    .filter((s) => s.to === name && s.status === "pending")
+    .sort((a, b) => b.date.localeCompare(a.date));
+}
+// Offers I made, whatever happened to them.
+function swapsByOfferer(name) {
+  return getSwaps()
+    .filter((s) => s.from === name)
+    .sort((a, b) => b.date.localeCompare(a.date));
+}
+// Swaps that actually happened, for either side.
+function swapHistoryFor(name) {
+  return getSwaps()
+    .filter((s) => s.status === "accepted" && (s.from === name || s.to === name))
+    .sort((a, b) => b.date.localeCompare(a.date));
+}
+function hasPendingSwap(giveId, getId) {
+  return getSwaps().some((s) => s.giveId === giveId && s.getId === getId && s.status === "pending");
+}
+
+// "I'll give you my Pop It for your Fidget Cube."
+function offerSwap(giveId, getId, fromName) {
+  const items = getItems();
+  const give = items.find((i) => i.id === giveId);
+  const get = items.find((i) => i.id === getId);
+
+  if (!give) return { ok: false, msg: "Pick one of your toys to swap." };
+  if (!get) return { ok: false, msg: "That toy is gone." };
+  if (give.owner !== fromName) return { ok: false, msg: "You can only offer your own toys." };
+  if (get.owner === fromName) return { ok: false, msg: "That's your own toy! 😄" };
+  if (give.status !== "available") return { ok: false, msg: "That toy of yours is already sold." };
+  if (get.status !== "available") return { ok: false, msg: "Sorry, that toy is already taken." };
+  if (hasPendingSwap(giveId, getId)) return { ok: false, msg: "You already offered that swap." };
+
+  const swaps = getSwaps();
+  swaps.push({
+    id: "w" + Date.now(),
+    from: fromName,
+    to: get.owner,
+    giveId: give.id,
+    giveName: give.name,
+    giveImage: give.image,
+    getId: get.id,
+    getName: get.name,
+    getImage: get.image,
+    status: "pending",
+    date: new Date().toISOString(),
+  });
+  _save(KEYS.swaps, swaps);
+  return { ok: true, msg: `You offered "${give.name}" for ${get.owner}'s "${get.name}"! 🔄 Wait for a yes.` };
+}
+
+// Owner says YES → the two toys change hands. No coins move at all.
+function acceptSwap(swapId, ownerName) {
+  const swaps = getSwaps();
+  const s = swaps.find((x) => x.id === swapId);
+  if (!s || s.status !== "pending") return { ok: false, msg: "This swap is no longer waiting." };
+  if (s.to !== ownerName) return { ok: false, msg: "That's not your toy." };
+
+  const items = getItems();
+  const give = items.find((i) => i.id === s.giveId);
+  const get = items.find((i) => i.id === s.getId);
+  if (!give || !get || give.status !== "available" || get.status !== "available") {
+    s.status = "declined";
+    _save(KEYS.swaps, swaps);
+    return { ok: false, msg: "One of those toys is gone now. Swap removed." };
+  }
+  if (give.owner !== s.from || get.owner !== s.to) {
+    s.status = "declined";
+    _save(KEYS.swaps, swaps);
+    return { ok: false, msg: "Those toys changed hands already. Swap removed." };
+  }
+
+  const now = new Date().toISOString();
+  give.owner = s.to;
+  give.tradedAt = now;
+  get.owner = s.from;
+  get.tradedAt = now;
+  _save(KEYS.items, items);
+
+  s.status = "accepted";
+  s.doneAt = now;
+  _save(KEYS.swaps, swaps);
+
+  // Any other offer or buy request for these two toys is now out of date.
+  _cancelPendingFor([s.giveId, s.getId], swapId);
+
+  return { ok: true, msg: `Swapped! "${s.getName}" is yours and ${s.from} gets "${s.giveName}". 🔄 Trade them in person!` };
+}
+
+function declineSwap(swapId, ownerName) {
+  const swaps = getSwaps();
+  const s = swaps.find((x) => x.id === swapId);
+  if (!s || s.to !== ownerName || s.status !== "pending") return { ok: false, msg: "Can't do that." };
+  s.status = "declined";
+  _save(KEYS.swaps, swaps);
+  return { ok: true, msg: "Maybe next time! Swap said no." };
+}
+
+// The friend who made the offer changes their mind.
+function cancelSwap(swapId, fromName) {
+  const swaps = getSwaps();
+  const s = swaps.find((x) => x.id === swapId);
+  if (!s || s.from !== fromName || s.status !== "pending") return { ok: false, msg: "Can't do that." };
+  s.status = "cancelled";
+  _save(KEYS.swaps, swaps);
+  return { ok: true, msg: "Offer taken back." };
+}
+
+// Once a toy is sold or swapped, tidy up every other pending offer/request for it.
+function _cancelSwapsFor(itemId, keepSwapId) {
+  const swaps = getSwaps();
+  let touched = false;
+  swaps.forEach((s) => {
+    if (s.status === "pending" && s.id !== keepSwapId && (s.giveId === itemId || s.getId === itemId)) {
+      s.status = "declined";
+      touched = true;
+    }
+  });
+  if (touched) _save(KEYS.swaps, swaps);
+}
+
+function _cancelPendingFor(itemIds, keepSwapId) {
+  itemIds.forEach((id) => _cancelSwapsFor(id, keepSwapId));
+
+  const reqs = getRequests();
+  let touchedReqs = false;
+  reqs.forEach((r) => {
+    if (r.status === "pending" && itemIds.includes(r.itemId)) {
+      r.status = "declined";
+      touchedReqs = true;
+    }
+  });
+  if (touchedReqs) _save(KEYS.requests, reqs);
 }
 
 /* ---------- sending coins (gift) ---------- */
@@ -269,6 +440,26 @@ function transfersForUser(name) {
 }
 
 /* ---------- admin powers ---------- */
+// Deshna says yes → the friend can log in from now on.
+function approveUser(username) {
+  const users = getUsers();
+  const u = users.find((x) => x.username === username);
+  if (!u) return { ok: false, msg: "Friend not found." };
+  if (u.status === "approved") return { ok: false, msg: `${username} is already in.` };
+  u.status = "approved";
+  _save(KEYS.users, users);
+  return { ok: true, msg: `${username} is in! 🎉 They start with ${COIN} ${u.balance}.` };
+}
+// Deshna says no → the sign-up is thrown away and the name is free again.
+function declineUser(username) {
+  const users = getUsers();
+  const u = users.find((x) => x.username === username);
+  if (!u) return { ok: false, msg: "Friend not found." };
+  if (u.status !== "pending") return { ok: false, msg: "You can only decline friends who are still waiting." };
+  _save(KEYS.users, users.filter((x) => x.username !== username));
+  return { ok: true, msg: `${username}'s sign-up was removed.` };
+}
+
 function adminAddCoins(username, amount) {
   amount = Math.round(Number(amount) || 0);
   const u = findUser(username);
@@ -277,10 +468,44 @@ function adminAddCoins(username, amount) {
   return { ok: true, msg: `${username} now has ${COIN} ${getBalance(username)}.` };
 }
 function adminResetAll() {
-  [KEYS.users, KEYS.items, KEYS.txns, KEYS.requests, KEYS.transfers, KEYS.session].forEach((k) =>
+  [KEYS.users, KEYS.items, KEYS.txns, KEYS.requests, KEYS.swaps, KEYS.transfers, KEYS.session].forEach((k) =>
     localStorage.removeItem(k)
   );
+  _seedAdmin(); // Deshna's own account always comes back
 }
+
+/* ---------- first-run setup ---------- */
+// Makes sure Deshna's admin account exists, and that friends saved before
+// approvals existed stay logged-in-able.
+function _seedAdmin() {
+  const users = getUsers();
+  let changed = false;
+
+  users.forEach((u) => {
+    if (!u.status) {
+      u.status = "approved";
+      changed = true;
+    }
+  });
+
+  const admin = users.find((x) => x.username.toLowerCase() === ADMIN_NAME);
+  if (!admin) {
+    users.push({
+      username: ADMIN_DISPLAY_NAME,
+      pin: ADMIN_PIN,
+      balance: START_BALANCE,
+      joined: new Date().toISOString(),
+      status: "approved",
+    });
+    changed = true;
+  } else if (admin.status !== "approved") {
+    admin.status = "approved";
+    changed = true;
+  }
+
+  if (changed) _save(KEYS.users, users);
+}
+_seedAdmin();
 
 /* ---------- transactions ---------- */
 function getTxns() {
@@ -357,9 +582,13 @@ function renderNav(activePage) {
   const links = document.getElementById("navLinks");
   if (!authArea || !links) return;
 
+  // Show a little count when friends are waiting for a swap answer.
+  const waitingSwaps = user ? swapsForOwner(user.username).length : 0;
+
   const linkDefs = [
     { href: "index.html", label: "🏠 Home", page: "home" },
     { href: "market.html", label: "🛒 Toys", page: "market" },
+    { href: "trade.html", label: `🔄 Trading Board${waitingSwaps ? ` (${waitingSwaps})` : ""}`, page: "trade" },
     { href: "mytoys.html", label: "🧸 My Toys", page: "mytoys" },
     { href: "history.html", label: "🎒 My Stuff", page: "history" },
   ];

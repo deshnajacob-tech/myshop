@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trading Board — Deshna's Toy Trade</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body data-page="trade">
+  <header class="site-header">
+    <div class="container nav">
+      <a class="brand" href="index.html">
+        <span class="logo">D</span>
+        <span class="brand-text"><b>Deshna's Toy Trade</b><span>SWAP · TRADE · SMILE</span></span>
+      </a>
+      <nav class="nav-links" id="navLinks"></nav>
+      <div class="nav-auth" id="navAuth"></div>
+    </div>
+  </header>
+
+  <section class="section">
+    <div class="container">
+      <div class="section-head">
+        <h2>Trading Board 🔄</h2>
+        <p>Swap a toy straight for another toy — like fidget trading. <b>No coins needed!</b></p>
+      </div>
+
+      <!-- Offers waiting for me -->
+      <div class="panel request-panel" id="inboxPanel" style="display:none;margin-bottom:22px">
+        <h2>🙋 Swap offers for you</h2>
+        <p class="hint">Say yes and the two toys change hands right away.</p>
+        <div class="admin-list" id="swapInbox"></div>
+      </div>
+
+      <!-- Offers I made -->
+      <div class="panel" id="outboxPanel" style="display:none;margin-bottom:22px">
+        <h2>📤 Your offers</h2>
+        <p class="hint">Waiting for your friend to say yes. You can take an offer back.</p>
+        <div class="admin-list" id="swapOutbox"></div>
+      </div>
+
+      <div class="note" id="noToysNote" style="display:none;max-width:640px;margin:0 auto 26px">
+        🧸 You need a toy of your own before you can swap.
+        <a href="mytoys.html" style="color:var(--rose);font-weight:600">List one in My Toys</a> first!
+      </div>
+
+      <div class="section-head" style="margin-bottom:22px">
+        <h2 style="font-size:26px">Toys you can swap for</h2>
+        <p>Pick which of your toys to offer, then send the swap.</p>
+      </div>
+      <div class="grid" id="tradeGrid"></div>
+
+      <!-- Done swaps -->
+      <div class="panel" id="historyPanel" style="display:none;margin-top:36px">
+        <h2>✅ Swaps you've done</h2>
+        <p class="hint">Remember to hand over the real toys when you meet!</p>
+        <div class="admin-list" id="swapHistory"></div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container footer-bottom">
+      © <span id="year"></span> Deshna's Toy Trade · Virtual coins only · Made with 💜 by Deshna
+    </div>
+  </footer>
+
+  <script src="js/store.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
