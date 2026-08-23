@@ -16,6 +16,7 @@ You buy and sell with virtual coins on the site; the actual toys are handed over
 - 📸 **List toys** (new / used) with a photo, price and description
 - 🛒 **Marketplace** — logged-in friends see everyone *else's* available toys
 - 🙋 **Ask to buy** — the owner says **Yes!** or **No** before any coins move
+- 🧸 **One toy in, one toy out** — you can only buy as many toys as you've listed yourself
 - 🔄 **Trading Board** — swap a toy straight for another toy, fidget-trading style (no coins)
 - 💝 **Send coins** — gift coins to a friend
 - 📜 **History page** — bought, sold, your asks, and a coin summary
@@ -37,6 +38,24 @@ owners immediately (no coins move at all), both toys stay listed so they can be 
 again, and any other offer or buy request for those two toys is tidied away. You can take
 back an offer while it's still waiting, and every finished swap is listed at the bottom of
 the page so you remember what to hand over in person.
+
+### One toy in, one toy out 🧸
+So the site stays a *trading* club and not a shop, **you can only buy as many toys as you
+keep on the site**: every toy you list earns you one buy.
+
+- List 3 toys → you can buy 3 toys. Buy them all and the **Ask to buy** buttons turn into
+  **List a toy first 🧸** until you put up another toy.
+- Asks that are still waiting for a yes count too, so you can't ask ten friends at once
+  with only one toy listed.
+- Only toys **you** put up count. Toys you bought or swapped for belong to whoever listed
+  them, so you can't recycle them to earn more buys.
+- Toys that already sold still count for you — selling never costs you a buy.
+- Swapping toy-for-toy on the Trading Board is always allowed; it's already one-for-one.
+
+The Marketplace shows a banner with how many buys you have left, and **My Toys** shows the
+same sum under your listings. If someone takes a listing back down after asking for a toy,
+the seller sees "…has to list another toy" instead of the trade going through — the ask
+just waits until they do.
 
 ### Pausing and removing friends ⏸️ 🗑️
 Every friend in the 👥 **Friends** list on the admin page has two buttons besides the coin
@@ -150,7 +169,8 @@ rather than double-clicking the HTML file.
 3. Have your friends register (and get accepted) and list their toys too —
    from their own computers or phones.
 4. Open the **Marketplace** to see friends' toys and **Buy** the ones you like —
-   or use the **Trading Board** to swap one of your toys for one of theirs.
+   remember you get one buy for every toy you list — or use the **Trading Board** to swap
+   one of your toys for one of theirs.
 5. Check **History** to see your trades and coin balance.
 6. When you all meet up, **hand over the real toys!** 🤝
 

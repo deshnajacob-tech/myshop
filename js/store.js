@@ -259,6 +259,18 @@ export function leaderboard() {
     .sort((a, b) => b.listed - a.listed || b.trades - a.trades || a.joined.localeCompare(b.joined));
 }
 
+/* ---------- fair-trade rule: buy one, list one ---------- */
+// You can only buy as many toys as you keep on the site. Every toy YOU put up
+// for trade earns you one buy; toys you bought or swapped for don't count
+// (they were listed by whoever put them up), so nobody can just collect.
+// Asks that are still waiting count too, or you could ask for ten toys at once.
+export function buyAllowance(username) {
+  const listed = getItems().filter((i) => (i.listedBy || i.owner) === username).length;
+  const bought = getTxns().filter((t) => t.buyer === username).length;
+  const waiting = getRequests().filter((r) => r.buyer === username && r.status === "pending").length;
+  return { listed, bought, waiting, left: Math.max(0, listed - bought - waiting) };
+}
+
 /* ---------- buy requests (ask → seller says yes/no) ---------- */
 export function getRequests() {
   return _cache.requests.slice();
@@ -273,6 +285,16 @@ export async function askToBuy(itemId, buyerName) {
   if (item.status !== "available") return { ok: false, msg: "Sorry, that toy is already taken." };
   if (item.owner === buyerName) return { ok: false, msg: "That's your own toy! 😄" };
   if (hasPendingRequest(itemId, buyerName)) return { ok: false, msg: "You already asked for this toy." };
+
+  // One toy in, one toy out — list a toy before you take one home.
+  const allowance = buyAllowance(buyerName);
+  if (allowance.left <= 0)
+    return {
+      ok: false,
+      msg: allowance.listed
+        ? `You've used up all ${allowance.listed} of your buys. List another toy to buy another one! 🧸`
+        : "List one of your own toys first — then you can buy one. 🧸",
+    };
 
   const buyer = findUser(buyerName);
   if (buyer.balance < item.price)
@@ -307,6 +329,14 @@ export function requestsByBuyer(buyerName) {
 export async function acceptRequest(reqId, sellerName) {
   const cached = getRequests().find((r) => r.id === reqId);
   if (!cached) return { ok: false, msg: "This request is no longer waiting." };
+
+  // They may have taken a toy back down since they asked — one toy in, one out.
+  const fair = buyAllowance(cached.buyer);
+  if (fair.bought >= fair.listed)
+    return {
+      ok: false,
+      msg: `${cached.buyer} has to list another toy before they can buy one more. 🧸 Their ask stays here until then.`,
+    };
 
   const txnId = _newId("txns");
   let result;

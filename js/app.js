@@ -36,6 +36,7 @@ import {
   getItems,
   getItemsByOwner,
   getMarketItems,
+  buyAllowance,
   addItem,
   deleteItem,
   hasPendingRequest,
@@ -253,9 +254,29 @@ function initMarket() {
     });
   }
 
+  // "You can buy 2 more toys" — the one-in, one-out rule, in plain words.
+  function drawAllowance(allowance) {
+    const bar = document.getElementById("buyAllowance");
+    if (!bar) return;
+    bar.style.display = "block";
+    const listed = `You've listed <b>${allowance.listed} toy${allowance.listed === 1 ? "" : "s"}</b>`;
+    if (!allowance.listed) {
+      bar.innerHTML = `🧸 <b>List a toy to start buying.</b> You can buy one toy for every toy you put up for
+        trade — <a href="mytoys.html" style="color:var(--rose)">list your first toy</a>!`;
+    } else if (allowance.left > 0) {
+      bar.innerHTML = `🧸 ${listed}, so you can buy <b>${allowance.left} more</b>.
+        ${allowance.waiting ? `(${allowance.waiting} ask${allowance.waiting === 1 ? "" : "s"} still waiting.)` : ""}`;
+    } else {
+      bar.innerHTML = `🧸 ${listed} and used them all up.
+        <a href="mytoys.html" style="color:var(--rose)">List another toy</a> to buy another one!`;
+    }
+  }
+
   function draw() {
     const grid = document.getElementById("marketGrid");
     const fresh = currentUser();
+    const allowance = buyAllowance(me.username);
+    drawAllowance(allowance);
     let list = getMarketItems(me.username);
     if (activeCond !== "All") list = list.filter((i) => i.condition === activeCond);
 
@@ -272,6 +293,8 @@ function initMarket() {
         let btn;
         if (asked) {
           btn = `<button class="btn small ghost" disabled>Asked ⏳</button>`;
+        } else if (allowance.left <= 0) {
+          btn = `<button class="btn small ghost" disabled title="You can buy one toy for every toy you list">List a toy first 🧸</button>`;
         } else if (!canAfford) {
           btn = `<button class="btn small ghost" disabled>Need more 🪙</button>`;
         } else {
@@ -568,10 +591,23 @@ function initMyToys() {
       form.reset();
       imageData = "";
       previewBox.innerHTML = "<span>Photo preview</span>";
-      toast(`"${name}" is now up for trade! 🎉`);
+      toast(`"${name}" is now up for trade! 🎉 That's one more toy you can buy.`);
       drawMine();
+      drawFairNote();
     });
   });
+
+  // Reminder of the one-in, one-out rule, with your own numbers in it.
+  function drawFairNote() {
+    const note = document.getElementById("fairNote");
+    const a = buyAllowance(me.username);
+    const rule = "🧸 <b>One toy in, one toy out.</b> You can buy one toy for every toy you list.";
+    note.innerHTML = a.listed
+      ? `${rule} You've listed <b>${a.listed}</b>, bought <b>${a.bought}</b>${
+          a.waiting ? ` and asked for <b>${a.waiting}</b> more` : ""
+        } — so you can buy <b>${a.left}</b> right now.`
+      : `${rule} List your first toy above and you can buy one!`;
+  }
 
   function drawMine() {
     const wrap = document.getElementById("myList");
@@ -600,8 +636,9 @@ function initMyToys() {
         busy(btn, async () => {
           if (!confirm("Remove this toy from the marketplace?")) return;
           const res = await deleteItem(btn.dataset.id, me.username);
-          toast(res.ok ? "Toy removed." : res.msg);
+          toast(res.ok ? "Toy removed. That's one buy less, too." : res.msg);
           drawMine();
+          drawFairNote();
         })
       );
     });
@@ -657,6 +694,7 @@ function initMyToys() {
   function drawBoth() {
     drawRequests();
     drawMine();
+    drawFairNote();
   }
 
   _redraw = drawBoth;
