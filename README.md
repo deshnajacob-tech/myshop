@@ -21,6 +21,7 @@ You buy and sell with virtual coins on the site; the actual toys are handed over
 - 🙋 **Ask to buy** — the owner says **Yes!** or **No** before any coins move
 - 🧸 **One toy in, one toy out** — you can only buy as many toys as you've listed yourself
 - 🔄 **Trading Board** — swap a toy straight for another toy, fidget-trading style (no coins)
+- 😊 **Profile pictures** — add your own photo or drawing; it shows up everywhere you do
 - 💝 **Send coins** — gift coins to a friend
 - 📜 **History page** — bought, sold, your asks, and a coin summary
 - 🏆 **Leaderboard** — friends ranked by how many toys they've listed, with a podium, the
@@ -99,6 +100,22 @@ ones:
 
 Deshna's own admin account can't be paused or removed, so you can never lock yourself out.
 A paused friend is greyed out in the list and counted in the **Paused** box at the top.
+
+### Your own picture 😊
+On **My Stuff** there's a **😊 My Picture** panel. Choose a photo or a drawing and it's
+shrunk in the browser (240px) and saved on your account, so it appears on the leaderboard,
+the podium, the admin list and next to your name in the top bar. **Remove** puts you back
+to the letter blob. Nothing extra to set up — the picture rides along in the same `users`
+record as your coins.
+
+### Kawaii look 🌸
+The theme is soft and cute on purpose: pastel pinks, lavender and mint, rounded **Baloo 2**
+and **Quicksand** lettering, confetti dots in the background, squishy blob avatars with
+blushing cheeks, and buttons shaped like stickers that press down when you click them.
+Cards tilt when you hover, badges bob, and the swap arrow wiggles. All of it lives in
+[`css/style.css`](css/style.css) — the colours are CSS variables at the very top
+(`--rose`, `--lav`, `--mint`, `--blush`…), so the whole site re-skins by editing those
+few lines.
 
 ### Big kid-friendly buttons
 The whole site uses simple words, chunky buttons and emojis so younger kids can use it easily.

@@ -189,6 +189,36 @@ export function currentUser() {
   return user && user.status === "approved" ? user : null;
 }
 
+/* ---------- profile pictures ---------- */
+// The photo is shrunk in the browser and kept right on the account, so there
+// is nothing extra to set up. Same 1 MB record limit as a toy photo.
+export async function setAvatar(username, dataUrl) {
+  const u = findUser(username);
+  if (!u) return { ok: false, msg: "Friend not found." };
+  if (!dataUrl) return { ok: false, msg: "Pick a picture first. 📸" };
+  if (dataUrl.length > 400000) return { ok: false, msg: "That picture is too big. Try a smaller one. 📸" };
+
+  await updateDoc(_doc("users", username.toLowerCase()), { avatar: dataUrl });
+  return { ok: true, msg: "Looking good! Your new picture is up. 💖" };
+}
+
+export async function removeAvatar(username) {
+  if (!findUser(username)) return { ok: false, msg: "Friend not found." };
+  await updateDoc(_doc("users", username.toLowerCase()), { avatar: null });
+  return { ok: true, msg: "Picture removed — you're back to your letter." };
+}
+
+// The little round face used all over the site: their photo if they picked
+// one, otherwise the first letter of their name.
+export function avatarHtml(username, extraClass) {
+  const u = findUser(username);
+  const cls = `avatar${extraClass ? " " + extraClass : ""}`;
+  const name = escapeHtml(username || "?");
+  return u && u.avatar
+    ? `<span class="${cls} has-pic"><img src="${u.avatar}" alt="${name}" /></span>`
+    : `<span class="${cls}">${escapeHtml((username || "?")[0].toUpperCase())}</span>`;
+}
+
 export function getBalance(username) {
   const u = findUser(username);
   return u ? u.balance : 0;
@@ -937,7 +967,9 @@ export function renderNav(activePage) {
   if (user) {
     authArea.innerHTML = `
       <span class="balance-chip" title="Your virtual coins">${COIN} ${Number(user.balance).toLocaleString("en-IN")}</span>
-      <span class="who">Hi, <b>${escapeHtml(user.username)}</b></span>
+      <a class="who" href="history.html" title="Change your picture">
+        ${avatarHtml(user.username, "tiny")}<span class="who-name">Hi, <b>${escapeHtml(user.username)}</b></span>
+      </a>
       <button class="btn small ghost" id="logoutBtn">Log out</button>`;
     document.getElementById("logoutBtn").addEventListener("click", () => {
       logout();

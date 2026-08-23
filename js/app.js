@@ -25,6 +25,9 @@ import {
   resizeImage,
   register,
   login,
+  setAvatar,
+  removeAvatar,
+  avatarHtml,
   getApprovedUsers,
   getPendingUsers,
   getMemberUsers,
@@ -726,6 +729,43 @@ function initHistory() {
   if (!requireAuth()) return;
   const me = currentUser();
 
+  // ----- profile picture -----
+  const avatarFile = document.getElementById("avatarFile");
+  const avatarRemove = document.getElementById("avatarRemove");
+
+  function drawAvatar() {
+    const box = document.getElementById("myAvatar");
+    const fresh = currentUser();
+    box.innerHTML = avatarHtml(me.username, "big");
+    avatarRemove.style.display = fresh && fresh.avatar ? "inline-block" : "none";
+  }
+
+  avatarFile.addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    // Small and square-ish: a face doesn't need to be big.
+    resizeImage(file, 240, async (dataUrl) => {
+      try {
+        const res = await setAvatar(me.username, dataUrl);
+        toast(res.msg);
+      } catch (err) {
+        console.error(err);
+        toast("Couldn't save your picture. Try again. 📡");
+      }
+      avatarFile.value = "";
+      renderNav("history");
+      drawAvatar();
+    });
+  });
+
+  avatarRemove.addEventListener("click", () =>
+    busy(avatarRemove, async () => {
+      toast((await removeAvatar(me.username)).msg);
+      renderNav("history");
+      drawAvatar();
+    })
+  );
+
   function drawStats() {
     const fresh = currentUser();
     const bought = boughtBy(fresh.username);
@@ -794,6 +834,7 @@ function initHistory() {
   }
 
   function drawEverything() {
+    drawAvatar();
     fillFriends();
     drawStats();
     drawAsks();
@@ -881,7 +922,7 @@ function initLeaderboard() {
         return `
       <div class="podium-card place-${idx + 1}${p.username === me.username ? " is-me" : ""}">
         <div class="podium-medal">${MEDALS[idx]}</div>
-        <div class="avatar big">${escapeHtml(p.username[0].toUpperCase())}</div>
+        ${avatarHtml(p.username, "big")}
         <b>${escapeHtml(p.username)}</b>
         <span class="level-tag">${levelOf(p.username).icon} ${levelOf(p.username).name}</span>
         <span class="podium-score">${toys(p.listed)}</span>
@@ -916,7 +957,7 @@ function initLeaderboard() {
         return `
       <div class="mini rank-row${p.username === me.username ? " rank-me" : ""}">
         <span class="rank-num">${badge}</span>
-        <div class="avatar">${escapeHtml(p.username[0].toUpperCase())}</div>
+        ${avatarHtml(p.username)}
         <div class="info">
           <b>${escapeHtml(p.username)}${p.username === me.username ? " (you)" : ""}
             <span class="level-tag" title="${lv.listed} toys posted">${lv.icon} ${lv.name}</span></b>
@@ -966,7 +1007,7 @@ function initAdmin() {
           .map(
             (u) => `
         <div class="mini">
-          <div class="avatar">${escapeHtml(u.username[0].toUpperCase())}</div>
+          ${avatarHtml(u.username)}
           <div class="info">
             <b>${escapeHtml(u.username)}</b>
             <small>asked to join ${timeAgo(u.joined)} · will start with ${coins(u.balance)}</small>
@@ -1009,7 +1050,7 @@ function initAdmin() {
             const lv = levelOf(u.username);
             return `
         <div class="mini${paused ? " paused-row" : ""}">
-          <div class="avatar">${escapeHtml(u.username[0].toUpperCase())}</div>
+          ${avatarHtml(u.username)}
           <div class="info">
             <b>${name} ${isAdmin(u) ? "👑" : ""}
               <span class="level-tag" title="${lv.listed} toys posted">${lv.icon} ${lv.name}</span></b>

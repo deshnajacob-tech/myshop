@@ -6,7 +6,7 @@
   <title>History — Friends Trading Centre</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body data-page="history">
@@ -33,6 +33,21 @@
         <div class="stat"><span class="stat-label">Earned selling</span><span class="stat-val" id="statEarned">🪙 0</span></div>
         <div class="stat"><span class="stat-label">Spent buying</span><span class="stat-val" id="statSpent">🪙 0</span></div>
         <div class="stat"><span class="stat-label">Toys traded</span><span class="stat-val" id="statTraded">0</span></div>
+      </div>
+
+      <!-- My profile picture -->
+      <div class="panel" style="margin-bottom:36px">
+        <h2>😊 My Picture</h2>
+        <p class="hint">Add a photo or a drawing of yourself — your friends see it everywhere you show up.</p>
+        <div class="profile-row">
+          <div id="myAvatar"></div>
+          <div class="profile-actions">
+            <label class="btn small" for="avatarFile">Choose a picture 📸</label>
+            <input type="file" id="avatarFile" accept="image/*" class="visually-hidden" />
+            <button class="btn small ghost" id="avatarRemove" type="button">Remove</button>
+            <small class="hint" style="margin:0">Keep it friendly — everyone in the club can see it.</small>
+          </div>
+        </div>
       </div>
 
       <div class="admin-wrap">
