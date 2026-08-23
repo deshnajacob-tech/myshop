@@ -108,9 +108,21 @@ export function findUser(username) {
   const u = (username || "").trim().toLowerCase();
   return getUsers().find((x) => x.username.toLowerCase() === u) || null;
 }
-// Everyone Deshna has already said yes to.
+// Everyone Deshna has said yes to AND hasn't paused — the friends who can
+// actually play right now.
 export function getApprovedUsers() {
   return getUsers().filter((u) => u.status === "approved");
+}
+// A paused friend keeps their account, coins and toys, but can't log in
+// until Deshna switches them back on.
+export function isPaused(user) {
+  return !!user && user.status === "paused";
+}
+// Everyone who is in the club, playing or paused (not the ones still waiting).
+export function getMemberUsers() {
+  return getUsers()
+    .filter((u) => u.status === "approved" || u.status === "paused")
+    .sort((a, b) => a.joined.localeCompare(b.joined));
 }
 // Friends still waiting for Deshna to say yes.
 export function getPendingUsers() {
@@ -158,6 +170,8 @@ export async function login(username, pin) {
   if (user.pin !== pin) return { ok: false, msg: "Wrong PIN. Try again." };
   if (user.status === "pending")
     return { ok: false, msg: `${ADMIN_DISPLAY_NAME} hasn't said yes to you yet. Please wait a bit! ⏳` };
+  if (user.status === "paused")
+    return { ok: false, msg: `Your account is paused. Ask ${ADMIN_DISPLAY_NAME} to switch it back on. ⏸️` };
   localStorage.setItem(SESSION_KEY, user.username);
   return { ok: true, msg: `Welcome back, ${user.username}!` };
 }
@@ -168,7 +182,10 @@ export function logout() {
 
 export function currentUser() {
   const name = localStorage.getItem(SESSION_KEY);
-  return name ? findUser(name) : null;
+  const user = name ? findUser(name) : null;
+  // Paused (or removed) part-way through a visit? Then nobody is logged in
+  // here any more, and every page bounces them back to the home page.
+  return user && user.status === "approved" ? user : null;
 }
 
 export function getBalance(username) {
@@ -183,9 +200,11 @@ export function getItems() {
 export function getItemsByOwner(username) {
   return getItems().filter((i) => i.owner === username);
 }
-// Available toys from everyone EXCEPT the given user.
+// Available toys from everyone EXCEPT the given user. Toys belonging to a
+// paused friend are hidden — they can't log in to say yes to a trade.
 export function getMarketItems(username) {
-  return getItems().filter((i) => i.status === "available" && i.owner !== username);
+  const playing = new Set(getApprovedUsers().map((u) => u.username));
+  return getItems().filter((i) => i.status === "available" && i.owner !== username && playing.has(i.owner));
 }
 
 export async function addItem({ owner, name, condition, category, price, description, image }) {
@@ -555,6 +574,53 @@ export async function declineUser(username) {
   if (u.status !== "pending") return { ok: false, msg: "You can only decline friends who are still waiting." };
   await deleteDoc(_doc("users", username.toLowerCase()));
   return { ok: true, msg: `${username}'s sign-up was removed.` };
+}
+
+// Pause a friend (they can't log in, and their toys leave the marketplace)
+// or switch them back on. Nothing is deleted either way.
+export async function setUserActive(username, active) {
+  const u = findUser(username);
+  if (!u) return { ok: false, msg: "Friend not found." };
+  if (isAdmin(u)) return { ok: false, msg: "You can't pause your own admin account." };
+  if (u.status === "pending") return { ok: false, msg: "Say yes to this friend first." };
+
+  await updateDoc(_doc("users", username.toLowerCase()), { status: active ? "approved" : "paused" });
+  return {
+    ok: true,
+    msg: active
+      ? `${u.username} can log in again. ▶️`
+      : `${u.username} is paused — they can't log in until you switch them back on. ⏸️`,
+  };
+}
+
+// Deshna removes a friend for good: their account, the toys they still own,
+// and anything that was still waiting on them.
+// Finished trades stay in everyone else's history, and toys they already
+// swapped away belong to their new owner and are left alone.
+export async function removeUser(username) {
+  const u = findUser(username);
+  if (!u) return { ok: false, msg: "Friend not found." };
+  if (isAdmin(u)) return { ok: false, msg: "You can't remove your own admin account." };
+
+  const name = u.username;
+  const refs = [
+    _doc("users", name.toLowerCase()),
+    ...getItemsByOwner(name).map((i) => _doc("items", i.id)),
+    ...getRequests()
+      .filter((r) => r.buyer === name || r.seller === name)
+      .map((r) => _doc("requests", r.id)),
+    ...getSwaps()
+      .filter((s) => s.from === name || s.to === name)
+      .map((s) => _doc("swaps", s.id)),
+  ];
+
+  // Firestore only takes 500 changes at a time.
+  for (let i = 0; i < refs.length; i += 400) {
+    const batch = writeBatch(db);
+    refs.slice(i, i + 400).forEach((ref) => batch.delete(ref));
+    await batch.commit();
+  }
+  return { ok: true, msg: `${name} was removed, along with the toys they still had.` };
 }
 
 // Put every single account back on the same number of coins.

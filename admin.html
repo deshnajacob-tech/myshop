@@ -30,6 +30,7 @@
 
       <div class="stats">
         <div class="stat"><span class="stat-label">Friends</span><span class="stat-val" id="aFriends">0</span></div>
+        <div class="stat"><span class="stat-label">Paused</span><span class="stat-val" id="aPaused">0</span></div>
         <div class="stat"><span class="stat-label">Toys listed</span><span class="stat-val" id="aToys">0</span></div>
         <div class="stat"><span class="stat-label">Trades done</span><span class="stat-val" id="aTrades">0</span></div>
         <div class="stat"><span class="stat-label">Coins in play</span><span class="stat-val" id="aCoins">🪙 0</span></div>
@@ -43,7 +44,11 @@
 
       <div class="panel">
         <h2>👥 Friends</h2>
-        <p class="hint">Give or take coins with the + / − buttons.</p>
+        <p class="hint">
+          Give or take coins with the + / − buttons.
+          <b>⏸️ Pause</b> stops a friend logging in (nothing is lost — switch them on any time).
+          <b>Remove</b> deletes them for good.
+        </p>
         <div class="admin-list" id="friendList"></div>
         <div class="form-actions" style="margin-top:18px">
           <button class="btn ghost" id="setAllBtn">Set everyone to 🪙 50</button>

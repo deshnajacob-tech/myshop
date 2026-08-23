@@ -21,8 +21,11 @@ You buy and sell with virtual coins on the site; the actual toys are handed over
 - 📜 **History page** — bought, sold, your asks, and a coin summary
 - 🏆 **Leaderboard** — friends ranked by how many toys they've listed, with a podium and a
   "list 2 more to pass Aria" nudge
+- ⏸️ **Pause a friend** — they keep everything but can't log in until Deshna switches them on
+- 🗑️ **Remove a friend** — deletes their account and the toys they still own, for good
 - 👑 **Admin dashboard** (for Deshna) — accept/decline sign-ups, see all friends, top up/take coins,
-  **set everyone back to 🪙 50** with one button, view all toys & trades, reset everything
+  pause / switch on / remove friends, **set everyone back to 🪙 50** with one button,
+  view all toys & trades, reset everything
 - ☁️ **Works on any computer** — shared cloud database, updates live for everyone
 - 🤝 Toys delivered in person — only the coins are tracked online
 
@@ -34,6 +37,24 @@ owners immediately (no coins move at all), both toys stay listed so they can be 
 again, and any other offer or buy request for those two toys is tidied away. You can take
 back an offer while it's still waiting, and every finished swap is listed at the bottom of
 the page so you remember what to hand over in person.
+
+### Pausing and removing friends ⏸️ 🗑️
+Every friend in the 👥 **Friends** list on the admin page has two buttons besides the coin
+ones:
+
+- **⏸️ Pause** — the friend can't log in any more ("Your account is paused. Ask Deshna to
+  switch it back on."), and their toys disappear from the Marketplace, Trading Board,
+  Leaderboard and the send-coins list, because nobody can trade with someone who isn't
+  there. **Nothing is deleted** — their coins, toys and history all wait for them. If they
+  were logged in on their own device, the next time their page updates they're logged out.
+  The button turns into **▶️ Switch on**, which puts everything back exactly as it was.
+- **Remove** — deletes the account and the toys they still own for good, along with any buy
+  requests and swap offers that were still waiting on them. Toys they already swapped away
+  stay with their new owner, and finished trades stay in everyone else's history. It asks
+  "are you sure?" first, because it can't be undone — pause is the friendlier choice.
+
+Deshna's own admin account can't be paused or removed, so you can never lock yourself out.
+A paused friend is greyed out in the list and counted in the **Paused** box at the top.
 
 ### Big kid-friendly buttons
 The whole site uses simple words, chunky buttons and emojis so younger kids can use it easily.

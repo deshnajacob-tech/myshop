@@ -27,8 +27,12 @@ import {
   login,
   getApprovedUsers,
   getPendingUsers,
+  getMemberUsers,
+  isPaused,
   approveUser,
   declineUser,
+  setUserActive,
+  removeUser,
   getItems,
   getItemsByOwner,
   getMarketItems,
@@ -841,11 +845,14 @@ function initAdmin() {
 
   function draw() {
     const users = getApprovedUsers();
+    const members = getMemberUsers(); // playing + paused
     const waiting = getPendingUsers();
     const items = getItems();
     const txns = getTxns();
 
+    const pausedCount = members.length - users.length;
     document.getElementById("aFriends").textContent = users.length;
+    document.getElementById("aPaused").textContent = pausedCount;
     document.getElementById("aToys").textContent = items.length;
     document.getElementById("aTrades").textContent = txns.length;
     document.getElementById("aCoins").textContent = coins(users.reduce((s, u) => s + u.balance, 0));
@@ -890,22 +897,35 @@ function initAdmin() {
       )
     );
 
-    // Friends with give/take coins
+    // Friends: coins, pause / switch on, and remove for good
     const fWrap = document.getElementById("friendList");
-    fWrap.innerHTML = users.length
-      ? users
+    fWrap.innerHTML = members.length
+      ? members
           .map((u) => {
             const toys = getItemsByOwner(u.username).length;
+            const paused = isPaused(u);
+            const name = escapeHtml(u.username);
             return `
-        <div class="mini">
+        <div class="mini${paused ? " paused-row" : ""}">
           <div class="avatar">${escapeHtml(u.username[0].toUpperCase())}</div>
           <div class="info">
-            <b>${escapeHtml(u.username)} ${isAdmin(u) ? "👑" : ""}</b>
+            <b>${name} ${isAdmin(u) ? "👑" : ""}</b>
             <small>${coins(u.balance)} · ${toys} toy(s) · joined ${timeAgo(u.joined)}</small>
+            <small class="status ${paused ? "sold" : "available"}">
+              ${paused ? "Paused ⏸️ — can't log in" : "Playing ✅"}
+            </small>
           </div>
           <div class="yn">
-            <button class="btn small give-btn" data-u="${escapeHtml(u.username)}">+50 🪙</button>
-            <button class="btn small ghost take-btn" data-u="${escapeHtml(u.username)}">−50</button>
+            <button class="btn small give-btn" data-u="${name}">+50 🪙</button>
+            <button class="btn small ghost take-btn" data-u="${name}">−50</button>
+            ${
+              isAdmin(u)
+                ? ""
+                : `<button class="btn small ${paused ? "" : "ghost "}pause-btn" data-u="${name}" data-on="${paused ? "1" : "0"}">
+                     ${paused ? "▶️ Switch on" : "⏸️ Pause"}
+                   </button>
+                   <button class="del-btn kick-btn" data-u="${name}">Remove</button>`
+            }
           </div>
         </div>`;
           })
@@ -927,6 +947,32 @@ function initAdmin() {
         busy(b, async () => {
           await adminAddCoins(b.dataset.u, -50);
           toast(`Took ${COIN} 50 from ${b.dataset.u}`);
+          renderNav("admin");
+          draw();
+        })
+      )
+    );
+    // Pause a friend (they can't log in) or switch them back on
+    fWrap.querySelectorAll(".pause-btn").forEach((b) =>
+      b.addEventListener("click", () =>
+        busy(b, async () => {
+          const name = b.dataset.u;
+          const turnOn = b.dataset.on === "1";
+          if (!turnOn && !confirm(`Pause ${name}?\n\nThey stay in the club with all their coins and toys, but can't log in until you switch them back on.`))
+            return;
+          toast((await setUserActive(name, turnOn)).msg);
+          draw();
+        })
+      )
+    );
+    // Remove a friend for good
+    fWrap.querySelectorAll(".kick-btn").forEach((b) =>
+      b.addEventListener("click", () =>
+        busy(b, async () => {
+          const name = b.dataset.u;
+          if (!confirm(`Remove ${name} from the club for good?\n\nTheir account and the toys they still own are deleted and can't be brought back. Pause them instead if you might change your mind.`))
+            return;
+          toast((await removeUser(name)).msg);
           renderNav("admin");
           draw();
         })

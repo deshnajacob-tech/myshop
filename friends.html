@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Friends — Friends Trading Centre</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body data-page="friends">
+  <header class="site-header">
+    <div class="container nav">
+      <a class="brand" href="index.html">
+        <span class="logo">F</span>
+        <span class="brand-text"><b>Friends Trading Centre</b><span>SWAP · TRADE · SMILE</span></span>
+      </a>
+      <nav class="nav-links" id="navLinks"></nav>
+      <div class="nav-auth" id="navAuth"></div>
+    </div>
+  </header>
+
+  <section class="section">
+    <div class="container">
+      <div class="section-head">
+        <h2>My Friends 💬</h2>
+        <p>Everyone in the club. Open a chat box to talk about a trade!</p>
+      </div>
+
+      <div class="panel">
+        <h2>👥 Friends</h2>
+        <p class="hint">Press <b>Chat</b> on a friend to open their message box. <span id="adminHint"></span></p>
+        <div class="admin-list" id="friendsList"></div>
+        <div class="note">
+          Be kind! Everything you write stays in the chat for your friend (and Deshna can remove
+          anyone who isn't nice). Never share passwords, addresses or phone numbers here. 💜
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container footer-bottom">
+      © <span id="year"></span> Friends Trading Centre · Virtual coins only · Made with 💜 by Deshna
+    </div>
+  </footer>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
