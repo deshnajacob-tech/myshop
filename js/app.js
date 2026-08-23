@@ -37,6 +37,12 @@ import {
   getItemsByOwner,
   getMarketItems,
   buyAllowance,
+  LEVELS,
+  LEVEL_STEP,
+  LEVEL_BONUS,
+  LIST_REWARD,
+  levelOf,
+  levelBadge,
   addItem,
   deleteItem,
   hasPendingRequest,
@@ -591,7 +597,14 @@ function initMyToys() {
       form.reset();
       imageData = "";
       previewBox.innerHTML = "<span>Photo preview</span>";
-      toast(`"${name}" is now up for trade! 🎉 That's one more toy you can buy.`);
+      toast(`"${name}" is up for trade! 🎉 +${coins(LIST_REWARD)} and one more toy you can buy.`);
+      // A new badge deserves its own moment, right after the first toast.
+      if (res.levelUp)
+        setTimeout(
+          () => toast(`${res.levelUp.icon} Level up! You're ${res.levelUp.name} now. +${coins(res.levelUp.reward)}`),
+          2600
+        );
+      renderNav("mytoys");
       drawMine();
       drawFairNote();
     });
@@ -602,11 +615,16 @@ function initMyToys() {
     const note = document.getElementById("fairNote");
     const a = buyAllowance(me.username);
     const rule = "🧸 <b>One toy in, one toy out.</b> You can buy one toy for every toy you list.";
-    note.innerHTML = a.listed
-      ? `${rule} You've listed <b>${a.listed}</b>, bought <b>${a.bought}</b>${
-          a.waiting ? ` and asked for <b>${a.waiting}</b> more` : ""
-        } — so you can buy <b>${a.left}</b> right now.`
-      : `${rule} List your first toy above and you can buy one!`;
+    const lv = levelOf(me.username);
+    const next = levelBadge(lv.level + 1);
+    const levelLine = `<br/>${lv.icon} You're <b>${lv.name}</b> — post <b>${lv.toGo} more</b>
+      for ${next.icon} <b>${next.name}</b> (+${coins(LEVEL_BONUS)}). Every toy pays ${coins(LIST_REWARD)}.`;
+    note.innerHTML =
+      (a.listed
+        ? `${rule} You've listed <b>${a.listed}</b>, bought <b>${a.bought}</b>${
+            a.waiting ? ` and asked for <b>${a.waiting}</b> more` : ""
+          } — so you can buy <b>${a.left}</b> right now.`
+        : `${rule} List your first toy above and you can buy one!`) + levelLine;
   }
 
   function drawMine() {
@@ -797,11 +815,53 @@ function initLeaderboard() {
     return `${n} toy${n === 1 ? "" : "s"}`;
   }
 
+  // The level chart: one row per badge, with whoever is standing on it.
+  function drawLevels() {
+    const chart = document.getElementById("levelChart");
+    const mineBox = document.getElementById("myLevel");
+    const top = LEVELS[LEVELS.length - 1];
+    const mine = levelOf(me.username);
+    const myRow = Math.min(mine.level, top.level);
+
+    // Who is on each rung right now?
+    const byLevel = {};
+    getApprovedUsers().forEach((u) => {
+      const row = Math.min(levelOf(u.username).level, top.level);
+      byLevel[row] = byLevel[row] || [];
+      byLevel[row].push(u.username);
+    });
+
+    chart.innerHTML =
+      LEVELS.map((l) => {
+        const here = byLevel[l.level] || [];
+        return `
+      <div class="level-row${l.level === myRow ? " level-me" : ""}">
+        <span class="level-ico">${l.icon}</span>
+        <div class="info">
+          <b>${l.name}</b>
+          <small>${l.toys ? `${l.toys}+ toys posted · +${coins(LEVEL_BONUS)} bonus` : "Just starting out"}</small>
+        </div>
+        <span class="level-who">${
+          here.length ? here.map((n) => escapeHtml(n) + (n === me.username ? " (you)" : "")).join(", ") : "—"
+        }</span>
+      </div>`;
+      }).join("") +
+      `<p class="hint level-more">Past ${top.toys} toys the badge stays ${top.icon} ${top.name} and the
+        number keeps climbing — every ${LEVEL_STEP} toys is still +${coins(LEVEL_BONUS)}.</p>`;
+
+    const next = levelBadge(mine.level + 1);
+    mineBox.style.display = "block";
+    mineBox.innerHTML = `${mine.icon} <b>You're ${mine.name}</b> with ${toys(mine.listed)} posted.
+      Post <b>${mine.toGo} more</b> to reach ${next.icon} <b>${next.name}</b> and pick up +${coins(LEVEL_BONUS)}!`;
+  }
+
   function draw() {
     const board = leaderboard();
     const podium = document.getElementById("podium");
     const list = document.getElementById("rankList");
     const youAre = document.getElementById("youAre");
+
+    drawLevels();
 
     // Nobody has listed anything yet — be encouraging, not empty.
     if (!board.some((p) => p.listed > 0)) {
@@ -823,6 +883,7 @@ function initLeaderboard() {
         <div class="podium-medal">${MEDALS[idx]}</div>
         <div class="avatar big">${escapeHtml(p.username[0].toUpperCase())}</div>
         <b>${escapeHtml(p.username)}</b>
+        <span class="level-tag">${levelOf(p.username).icon} ${levelOf(p.username).name}</span>
         <span class="podium-score">${toys(p.listed)}</span>
         <small>${p.trades} trade${p.trades === 1 ? "" : "s"} done</small>
       </div>`;
@@ -851,12 +912,14 @@ function initLeaderboard() {
     list.innerHTML = board
       .map((p, i) => {
         const badge = MEDALS[i] || `#${i + 1}`;
+        const lv = levelOf(p.username);
         return `
       <div class="mini rank-row${p.username === me.username ? " rank-me" : ""}">
         <span class="rank-num">${badge}</span>
         <div class="avatar">${escapeHtml(p.username[0].toUpperCase())}</div>
         <div class="info">
-          <b>${escapeHtml(p.username)}${p.username === me.username ? " (you)" : ""}</b>
+          <b>${escapeHtml(p.username)}${p.username === me.username ? " (you)" : ""}
+            <span class="level-tag" title="${lv.listed} toys posted">${lv.icon} ${lv.name}</span></b>
           <small>${p.sold} sold · ${p.bought} bought · ${p.swapped} swapped</small>
         </div>
         <span class="rank-score">${p.listed}<small>toys</small></span>
@@ -943,11 +1006,13 @@ function initAdmin() {
             const toys = getItemsByOwner(u.username).length;
             const paused = isPaused(u);
             const name = escapeHtml(u.username);
+            const lv = levelOf(u.username);
             return `
         <div class="mini${paused ? " paused-row" : ""}">
           <div class="avatar">${escapeHtml(u.username[0].toUpperCase())}</div>
           <div class="info">
-            <b>${name} ${isAdmin(u) ? "👑" : ""}</b>
+            <b>${name} ${isAdmin(u) ? "👑" : ""}
+              <span class="level-tag" title="${lv.listed} toys posted">${lv.icon} ${lv.name}</span></b>
             <small>${coins(u.balance)} · ${toys} toy(s) · joined ${timeAgo(u.joined)}</small>
             <small class="status ${paused ? "sold" : "available"}">
               ${paused ? "Paused ⏸️ — can't log in" : "Playing ✅"}

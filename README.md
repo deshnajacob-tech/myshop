@@ -13,15 +13,18 @@ You buy and sell with virtual coins on the site; the actual toys are handed over
 - 👥 **Register** with a name + a 4-digit PIN — then wait for Deshna to say yes
 - ✅ **Admin approves sign-ups** — new friends can't log in until Deshna accepts them
 - 🪙 Everyone starts with **50 virtual coins**
-- 📸 **List toys** (new / used) with a photo, price and description
+- 📸 **List toys** (new / used) with a photo, price and description — **🪙 1 coin** for every
+  toy you post
+- 🏅 **Levels** — a new badge every 10 toys posted (Bronze → Silver → Gold → …), each one
+  worth a **🪙 5** bonus
 - 🛒 **Marketplace** — logged-in friends see everyone *else's* available toys
 - 🙋 **Ask to buy** — the owner says **Yes!** or **No** before any coins move
 - 🧸 **One toy in, one toy out** — you can only buy as many toys as you've listed yourself
 - 🔄 **Trading Board** — swap a toy straight for another toy, fidget-trading style (no coins)
 - 💝 **Send coins** — gift coins to a friend
 - 📜 **History page** — bought, sold, your asks, and a coin summary
-- 🏆 **Leaderboard** — friends ranked by how many toys they've listed, with a podium and a
-  "list 2 more to pass Aria" nudge
+- 🏆 **Leaderboard** — friends ranked by how many toys they've listed, with a podium, the
+  level chart and a "list 2 more to pass Aria" nudge
 - ⏸️ **Pause a friend** — they keep everything but can't log in until Deshna switches them on
 - 🗑️ **Remove a friend** — deletes their account and the toys they still own, for good
 - 👑 **Admin dashboard** (for Deshna) — accept/decline sign-ups, see all friends, top up/take coins,
@@ -38,6 +41,28 @@ owners immediately (no coins move at all), both toys stay listed so they can be 
 again, and any other offer or buy request for those two toys is tidied away. You can take
 back an offer while it's still waiting, and every finished swap is listed at the bottom of
 the page so you remember what to hand over in person.
+
+### Levels and rewards 🏅
+Posting toys pays. Every toy you list gives you **🪙 1** straight away, and every **10 toys
+posted** moves you up the level chart for a **🪙 5** bonus:
+
+| Badge | Level | Toys posted | Bonus |
+|-------|-------|-------------|-------|
+| 🌱 | Starter | 0 | — |
+| 🥉 | Bronze | 10 | 🪙 5 |
+| 🥈 | Silver | 20 | 🪙 5 |
+| 🥇 | Gold | 30 | 🪙 5 |
+| 💎 | Platinum | 40 | 🪙 5 |
+| 👑 | Diamond | 50 | 🪙 5 |
+| 🏆 | Legend | 60 | 🪙 5 |
+
+Past Legend the badge stays 🏆 and the number climbs (Legend 7, Legend 8…), still 🪙 5 every
+10 toys. The full chart is on the **Leaderboard** page with everyone's badge on it, plus a
+line telling you how many more toys you need for the next one.
+
+Only toys **you** posted count (the `listedBy` field), and the level you reach is saved on
+your account — so taking a toy back down never takes your badge away, and re-listing the
+same toy can't be farmed for bonuses.
 
 ### One toy in, one toy out 🧸
 So the site stays a *trading* club and not a shop, **you can only buy as many toys as you
@@ -165,7 +190,8 @@ rather than double-clicking the HTML file.
 
 1. **Register** on the home page (name + 4-digit PIN), then ask Deshna to accept you
    from the 👑 **Admin** page — after that you can log in with 🪙 50.
-2. Go to **My Toys** and list a toy you're bored with (add a photo + price).
+2. Go to **My Toys** and list a toy you're bored with (add a photo + price) — that's
+   🪙 1 in your pocket and one toy you're allowed to buy.
 3. Have your friends register (and get accepted) and list their toys too —
    from their own computers or phones.
 4. Open the **Marketplace** to see friends' toys and **Buy** the ones you like —

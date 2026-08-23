@@ -148,6 +148,7 @@ export async function register(username, pin) {
         username,
         pin,
         balance: START_BALANCE,
+        level: 0,
         joined: _now(),
         status: "pending",
       });
@@ -225,9 +226,15 @@ export async function addItem({ owner, name, condition, category, price, descrip
   if (item.image.length > 900000)
     return { ok: false, msg: "That photo is too big. Try a smaller one. 📸" };
 
+  // Counted before the write, because the live cache won't have the new toy
+  // for another moment yet.
+  const listedAfter = getItems().filter((i) => (i.listedBy || i.owner) === owner).length + 1;
+
   const id = _newId("items");
   await setDoc(_doc("items", id), item);
-  return { ok: true, item: { ...item, id } };
+
+  const { paid, levelUp } = await _rewardForListing(owner, listedAfter);
+  return { ok: true, item: { ...item, id }, paid, levelUp };
 }
 
 export async function deleteItem(id, owner) {
@@ -238,6 +245,74 @@ export async function deleteItem(id, owner) {
   await deleteDoc(_doc("items", id));
   await _cancelPendingFor([id]);
   return { ok: true };
+}
+
+/* ---------- levels (a badge for every 10 toys you post) ---------- */
+export const LEVEL_STEP = 10; // toys posted per level
+export const LEVEL_BONUS = 5; // coins for reaching a new level
+export const LIST_REWARD = 1; // coins for posting one toy
+
+// The chart everyone is climbing. Past the last row the badge stays Legend
+// and only the level number keeps going up.
+export const LEVELS = [
+  { level: 0, name: "Starter", icon: "🌱" },
+  { level: 1, name: "Bronze", icon: "🥉" },
+  { level: 2, name: "Silver", icon: "🥈" },
+  { level: 3, name: "Gold", icon: "🥇" },
+  { level: 4, name: "Platinum", icon: "💎" },
+  { level: 5, name: "Diamond", icon: "👑" },
+  { level: 6, name: "Legend", icon: "🏆" },
+].map((l) => ({ ...l, toys: l.level * LEVEL_STEP }));
+
+export function levelBadge(level) {
+  const l = LEVELS[Math.min(Math.max(level, 0), LEVELS.length - 1)];
+  // Level 7, 8, 9… all wear the Legend badge, with their number on it.
+  return level > LEVELS.length - 1 ? { ...l, name: `${l.name} ${level}`, level } : l;
+}
+
+// Everything a page needs to draw one friend's level: the badge they've
+// earned, how many toys they've posted, and what the next level costs.
+export function levelOf(username) {
+  const user = findUser(username);
+  const listed = getItems().filter((i) => (i.listedBy || i.owner) === username).length;
+  // A level is earned for good — taking a toy back down never demotes you.
+  const level = Math.max(user ? user.level || 0 : 0, Math.floor(listed / LEVEL_STEP));
+  const nextAt = (level + 1) * LEVEL_STEP;
+  return { ...levelBadge(level), listed, nextAt, toGo: Math.max(0, nextAt - listed) };
+}
+
+// Called right after a toy is posted: LIST_REWARD coins for the toy itself,
+// plus LEVEL_BONUS more for every 10-toy mark it pushed the friend past.
+// The level reached is stored on the account, so taking toys down and
+// re-listing them can never pay the level bonus twice.
+async function _rewardForListing(username, listedAfter) {
+  const ref = _doc("users", (username || "").toLowerCase());
+  const reached = Math.floor(listedAfter / LEVEL_STEP);
+
+  try {
+    return await runTransaction(db, async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists()) return { paid: 0, levelUp: null };
+
+      const earned = snap.data().level || 0;
+      // What they were on before this toy — the badge saved on their account,
+      // or the one their earlier toys already earned them (toys listed before
+      // levels existed still count, but they aren't paid for twice over).
+      const before = Math.max(earned, Math.floor((listedAfter - 1) / LEVEL_STEP));
+      const bonus = reached > before ? LEVEL_BONUS * (reached - before) : 0;
+      const paid = LIST_REWARD + bonus;
+
+      const update = { balance: snap.data().balance + paid };
+      if (reached > earned) update.level = reached;
+      tx.update(ref, update);
+
+      return { paid, levelUp: bonus ? { ...levelBadge(reached), reward: bonus } : null };
+    });
+  } catch (e) {
+    // A missed coin is never worth failing the toy listing over.
+    console.error("listing reward failed", e);
+    return { paid: 0, levelUp: null };
+  }
 }
 
 /* ---------- leaderboard ---------- */
@@ -708,6 +783,7 @@ async function _seedAdmin(force) {
     username: ADMIN_DISPLAY_NAME,
     pin: ADMIN_PIN,
     balance: START_BALANCE,
+    level: 0,
     joined: _now(),
     status: "approved",
   });
