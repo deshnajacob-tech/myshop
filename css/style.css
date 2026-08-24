@@ -545,6 +545,26 @@ a { color: inherit; text-decoration: none; }
 }
 .podium-card .level-tag { margin: 2px 0 4px; }
 
+/* ===== Countries (Deshna picks them, everyone sees the flag) ===== */
+.flag { font-size: 1.05em; vertical-align: middle; }
+.country-tag {
+  display: inline-block; background: #eef7ff; color: #3f6b93;
+  border: 2px solid #dbecfb; border-radius: 999px;
+  padding: 2px 12px; font-size: 12.5px; font-weight: 700;
+  font-family: var(--font-body); white-space: nowrap; vertical-align: middle;
+}
+.country-pick {
+  display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 14px;
+}
+.country-pick select {
+  flex: 1; min-width: 0; max-width: 260px;
+  padding: 6px 12px; border: 2px solid var(--line); border-radius: 999px;
+  font-family: var(--font-body); font-weight: 600; font-size: 14px;
+  color: var(--ink); background: #fffdfe; cursor: pointer;
+}
+.country-pick select:focus { outline: none; border-color: var(--rose); box-shadow: 0 0 0 4px #ffe4f0; }
+.country-pick select:disabled { opacity: .6; }
+
 /* ===== Paused friends (admin) ===== */
 .paused-row { background: #fbf7f4; border-color: #ecd9cc; }
 .paused-row .avatar { filter: grayscale(.7); opacity: .75; }

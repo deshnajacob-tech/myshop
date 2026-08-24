@@ -189,6 +189,96 @@ export function currentUser() {
   return user && user.status === "approved" ? user : null;
 }
 
+/* ---------- countries (Deshna picks one for each friend) ---------- */
+// A short world tour — enough choice for a club of friends without a
+// 200-item dropdown. Add a line here and it appears in the admin picker.
+export const COUNTRIES = [
+  { code: "IN", name: "India", flag: "🇮🇳" },
+  { code: "AE", name: "United Arab Emirates", flag: "🇦🇪" },
+  { code: "AU", name: "Australia", flag: "🇦🇺" },
+  { code: "BD", name: "Bangladesh", flag: "🇧🇩" },
+  { code: "BR", name: "Brazil", flag: "🇧🇷" },
+  { code: "CA", name: "Canada", flag: "🇨🇦" },
+  { code: "CN", name: "China", flag: "🇨🇳" },
+  { code: "DE", name: "Germany", flag: "🇩🇪" },
+  { code: "EG", name: "Egypt", flag: "🇪🇬" },
+  { code: "ES", name: "Spain", flag: "🇪🇸" },
+  { code: "FR", name: "France", flag: "🇫🇷" },
+  { code: "GB", name: "United Kingdom", flag: "🇬🇧" },
+  { code: "ID", name: "Indonesia", flag: "🇮🇩" },
+  { code: "IE", name: "Ireland", flag: "🇮🇪" },
+  { code: "IT", name: "Italy", flag: "🇮🇹" },
+  { code: "JP", name: "Japan", flag: "🇯🇵" },
+  { code: "KE", name: "Kenya", flag: "🇰🇪" },
+  { code: "KR", name: "South Korea", flag: "🇰🇷" },
+  { code: "LK", name: "Sri Lanka", flag: "🇱🇰" },
+  { code: "MY", name: "Malaysia", flag: "🇲🇾" },
+  { code: "MX", name: "Mexico", flag: "🇲🇽" },
+  { code: "NG", name: "Nigeria", flag: "🇳🇬" },
+  { code: "NL", name: "Netherlands", flag: "🇳🇱" },
+  { code: "NP", name: "Nepal", flag: "🇳🇵" },
+  { code: "NZ", name: "New Zealand", flag: "🇳🇿" },
+  { code: "PH", name: "Philippines", flag: "🇵🇭" },
+  { code: "PK", name: "Pakistan", flag: "🇵🇰" },
+  { code: "PL", name: "Poland", flag: "🇵🇱" },
+  { code: "PT", name: "Portugal", flag: "🇵🇹" },
+  { code: "QA", name: "Qatar", flag: "🇶🇦" },
+  { code: "SA", name: "Saudi Arabia", flag: "🇸🇦" },
+  { code: "SE", name: "Sweden", flag: "🇸🇪" },
+  { code: "SG", name: "Singapore", flag: "🇸🇬" },
+  { code: "TH", name: "Thailand", flag: "🇹🇭" },
+  { code: "TR", name: "Türkiye", flag: "🇹🇷" },
+  { code: "US", name: "United States", flag: "🇺🇸" },
+  { code: "VN", name: "Vietnam", flag: "🇻🇳" },
+  { code: "ZA", name: "South Africa", flag: "🇿🇦" },
+];
+
+export function findCountry(code) {
+  return COUNTRIES.find((c) => c.code === code) || null;
+}
+export function countryOf(username) {
+  const u = findUser(username);
+  return u && u.country ? findCountry(u.country) : null;
+}
+// Just the flag, for tucking next to a name.
+export function countryFlag(username) {
+  const c = countryOf(username);
+  return c ? `<span class="flag" title="${escapeHtml(c.name)}">${c.flag}</span>` : "";
+}
+// Flag + name, for the places with room for it.
+export function countryTag(username) {
+  const c = countryOf(username);
+  return c ? `<span class="country-tag">${c.flag} ${escapeHtml(c.name)}</span>` : "";
+}
+
+// You trade with friends from your own country. A friend Deshna hasn't given
+// a country to yet can still trade with everyone, so nobody is stuck waiting.
+export function sameCountry(nameA, nameB) {
+  const a = countryOf(nameA);
+  const b = countryOf(nameB);
+  return !a || !b || a.code === b.code;
+}
+// The "sorry, different country" line, with both flags in it.
+export function differentCountryMsg(me, them) {
+  const mine = countryOf(me);
+  const theirs = countryOf(them);
+  return `${them} is in ${theirs.flag} ${theirs.name} and you're in ${mine.flag} ${mine.name} — you can only trade inside your own country. 🌍`;
+}
+
+// Deshna picks a friend's country. An empty code clears it again.
+export async function setUserCountry(username, code) {
+  const u = findUser(username);
+  if (!u) return { ok: false, msg: "Friend not found." };
+  if (code && !findCountry(code)) return { ok: false, msg: "That country isn't on the list." };
+
+  await updateDoc(_doc("users", username.toLowerCase()), { country: code || null });
+  const c = findCountry(code);
+  return {
+    ok: true,
+    msg: c ? `${u.username} is flying the ${c.flag} ${c.name} flag!` : `${u.username} has no country now.`,
+  };
+}
+
 /* ---------- profile pictures ---------- */
 // The photo is shrunk in the browser and kept right on the account, so there
 // is nothing extra to set up. Same 1 MB record limit as a toy photo.
@@ -231,11 +321,18 @@ export function getItems() {
 export function getItemsByOwner(username) {
   return getItems().filter((i) => i.owner === username);
 }
-// Available toys from everyone EXCEPT the given user. Toys belonging to a
-// paused friend are hidden — they can't log in to say yes to a trade.
+// Available toys from everyone EXCEPT the given user. Toys are hidden when
+// their owner is paused (they can't log in to say yes) or lives in another
+// country (you only trade inside your own).
 export function getMarketItems(username) {
   const playing = new Set(getApprovedUsers().map((u) => u.username));
-  return getItems().filter((i) => i.status === "available" && i.owner !== username && playing.has(i.owner));
+  return getItems().filter(
+    (i) =>
+      i.status === "available" &&
+      i.owner !== username &&
+      playing.has(i.owner) &&
+      sameCountry(username, i.owner)
+  );
 }
 
 export async function addItem({ owner, name, condition, category, price, description, image }) {
@@ -389,6 +486,8 @@ export async function askToBuy(itemId, buyerName) {
   if (!item) return { ok: false, msg: "This toy is gone." };
   if (item.status !== "available") return { ok: false, msg: "Sorry, that toy is already taken." };
   if (item.owner === buyerName) return { ok: false, msg: "That's your own toy! 😄" };
+  if (!sameCountry(buyerName, item.owner))
+    return { ok: false, msg: differentCountryMsg(buyerName, item.owner) };
   if (hasPendingRequest(itemId, buyerName)) return { ok: false, msg: "You already asked for this toy." };
 
   // One toy in, one toy out — list a toy before you take one home.
@@ -434,6 +533,10 @@ export function requestsByBuyer(buyerName) {
 export async function acceptRequest(reqId, sellerName) {
   const cached = getRequests().find((r) => r.id === reqId);
   if (!cached) return { ok: false, msg: "This request is no longer waiting." };
+
+  // Countries can change between the ask and the yes.
+  if (!sameCountry(sellerName, cached.buyer))
+    return { ok: false, msg: differentCountryMsg(sellerName, cached.buyer) };
 
   // They may have taken a toy back down since they asked — one toy in, one out.
   const fair = buyAllowance(cached.buyer);
@@ -542,6 +645,7 @@ export async function offerSwap(giveId, getId, fromName) {
   if (!get) return { ok: false, msg: "That toy is gone." };
   if (give.owner !== fromName) return { ok: false, msg: "You can only offer your own toys." };
   if (get.owner === fromName) return { ok: false, msg: "That's your own toy! 😄" };
+  if (!sameCountry(fromName, get.owner)) return { ok: false, msg: differentCountryMsg(fromName, get.owner) };
   if (give.status !== "available") return { ok: false, msg: "That toy of yours is already sold." };
   if (get.status !== "available") return { ok: false, msg: "Sorry, that toy is already taken." };
   if (hasPendingSwap(giveId, getId)) return { ok: false, msg: "You already offered that swap." };
@@ -563,6 +667,10 @@ export async function offerSwap(giveId, getId, fromName) {
 
 // Owner says YES → the two toys change hands. No coins move at all.
 export async function acceptSwap(swapId, ownerName) {
+  const waiting = getSwaps().find((x) => x.id === swapId);
+  if (waiting && !sameCountry(ownerName, waiting.from))
+    return { ok: false, msg: differentCountryMsg(ownerName, waiting.from) };
+
   let result;
   try {
     result = await runTransaction(db, async (tx) => {

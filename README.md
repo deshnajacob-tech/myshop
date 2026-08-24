@@ -22,6 +22,8 @@ You buy and sell with virtual coins on the site; the actual toys are handed over
 - 🧸 **One toy in, one toy out** — you can only buy as many toys as you've listed yourself
 - 🔄 **Trading Board** — swap a toy straight for another toy, fidget-trading style (no coins)
 - 😊 **Profile pictures** — add your own photo or drawing; it shows up everywhere you do
+- 🌍 **Countries** — Deshna gives each friend a country, and their flag flies next to their name
+- 🛂 **Trade at home** — you buy and swap with friends in your own country only
 - 💝 **Send coins** — gift coins to a friend
 - 📜 **History page** — bought, sold, your asks, and a coin summary
 - 🏆 **Leaderboard** — friends ranked by how many toys they've listed, with a podium, the
@@ -100,6 +102,27 @@ ones:
 
 Deshna's own admin account can't be paused or removed, so you can never lock yourself out.
 A paused friend is greyed out in the list and counted in the **Paused** box at the top.
+
+### Countries 🌍
+Only Deshna picks countries. Each friend in the admin 👥 **Friends** panel has a 🌍 dropdown
+— choose a country and it saves straight away; **No country yet** clears it again. Their
+flag then flies next to their name on the leaderboard (rankings and podium), on every toy
+card in the Marketplace and the Trading Board, and on their own **My Stuff** page.
+
+The list lives in `COUNTRIES` at the top of [`js/store.js`](js/store.js) — about 38 countries
+with their flags. Add a `{ code, name, flag }` line there and it appears in the dropdown
+straight away; no other change needed.
+
+**You trade inside your own country.** Toys belonging to friends in another country simply
+don't appear in your Marketplace or Trading Board, and every trade path checks it again
+before anything moves — asking to buy, the seller saying yes, offering a swap and accepting
+one. If Deshna moves someone to another country while an ask or offer is still waiting, the
+yes is refused with "…is in 🇬🇧 United Kingdom and you're in 🇮🇳 India".
+
+A friend who hasn't been given a country yet trades with **everyone**, so nothing stops
+working before Deshna gets round to setting them. Both pages say which it is: *"🌍 These are
+the toys from friends in 🇮🇳 India"* or *"🌍 You don't have a country yet, so you can trade
+with everyone."* Sending coins as a gift is **not** limited by country — only toy trades are.
 
 ### Your own picture 😊
 On **My Stuff** there's a **😊 My Picture** panel. Choose a photo or a drawing and it's

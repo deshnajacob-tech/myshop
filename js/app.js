@@ -28,6 +28,11 @@ import {
   setAvatar,
   removeAvatar,
   avatarHtml,
+  COUNTRIES,
+  countryOf,
+  countryFlag,
+  countryTag,
+  setUserCountry,
   getApprovedUsers,
   getPendingUsers,
   getMemberUsers,
@@ -263,22 +268,29 @@ function initMarket() {
     });
   }
 
-  // "You can buy 2 more toys" — the one-in, one-out rule, in plain words.
+  // "You can buy 2 more toys" — the one-in, one-out rule, in plain words,
+  // plus a reminder of whose toys you're allowed to see.
   function drawAllowance(allowance) {
     const bar = document.getElementById("buyAllowance");
     if (!bar) return;
     bar.style.display = "block";
+    const mine = countryOf(me.username);
+    const countryLine = mine
+      ? `<br/>🌍 These are the toys from friends in ${mine.flag} <b>${escapeHtml(mine.name)}</b> — that's who you trade with.`
+      : `<br/>🌍 You don't have a country yet, so you can trade with everyone. Ask Deshna to pick yours!`;
     const listed = `You've listed <b>${allowance.listed} toy${allowance.listed === 1 ? "" : "s"}</b>`;
+    let buys;
     if (!allowance.listed) {
-      bar.innerHTML = `🧸 <b>List a toy to start buying.</b> You can buy one toy for every toy you put up for
+      buys = `🧸 <b>List a toy to start buying.</b> You can buy one toy for every toy you put up for
         trade — <a href="mytoys.html" style="color:var(--rose)">list your first toy</a>!`;
     } else if (allowance.left > 0) {
-      bar.innerHTML = `🧸 ${listed}, so you can buy <b>${allowance.left} more</b>.
+      buys = `🧸 ${listed}, so you can buy <b>${allowance.left} more</b>.
         ${allowance.waiting ? `(${allowance.waiting} ask${allowance.waiting === 1 ? "" : "s"} still waiting.)` : ""}`;
     } else {
-      bar.innerHTML = `🧸 ${listed} and used them all up.
+      buys = `🧸 ${listed} and used them all up.
         <a href="mytoys.html" style="color:var(--rose)">List another toy</a> to buy another one!`;
     }
+    bar.innerHTML = buys + countryLine;
   }
 
   function draw() {
@@ -318,7 +330,7 @@ function initMarket() {
           </div>
         </div>
         <div class="card-body">
-          <span class="card-cat">${escapeHtml(i.category)} · from ${escapeHtml(i.owner)}</span>
+          <span class="card-cat">${escapeHtml(i.category)} · from ${escapeHtml(i.owner)} ${countryFlag(i.owner)}</span>
           <h3 class="card-title">${escapeHtml(i.name)}</h3>
           <p class="card-desc">${escapeHtml(i.description) || "No description."}</p>
           <div class="card-foot">
@@ -457,6 +469,15 @@ function initTrade() {
 
     document.getElementById("noToysNote").style.display = myToys.length ? "none" : "block";
 
+    // Whose toys am I allowed to swap for?
+    const mine = countryOf(me.username);
+    const countryBar = document.getElementById("tradeCountry");
+    countryBar.style.display = "block";
+    countryBar.innerHTML = mine
+      ? `🌍 Swaps happen inside your own country — these are the toys from friends in
+         ${mine.flag} <b>${escapeHtml(mine.name)}</b>.`
+      : `🌍 You don't have a country yet, so you can swap with everyone. Ask Deshna to pick yours!`;
+
     if (!theirs.length) {
       grid.innerHTML = `<div class="empty">No toys to swap for right now 🧸<br/>
         Ask your friends to list some in <a href="mytoys.html" style="color:var(--rose)">My Toys</a>!</div>`;
@@ -489,7 +510,7 @@ function initTrade() {
           </div>
         </div>
         <div class="card-body">
-          <span class="card-cat">${escapeHtml(i.category)} · from ${escapeHtml(i.owner)}</span>
+          <span class="card-cat">${escapeHtml(i.category)} · from ${escapeHtml(i.owner)} ${countryFlag(i.owner)}</span>
           <h3 class="card-title">${escapeHtml(i.name)}</h3>
           <p class="card-desc">${escapeHtml(i.description) || "No description."}</p>
           ${picker}
@@ -738,6 +759,11 @@ function initHistory() {
     const fresh = currentUser();
     box.innerHTML = avatarHtml(me.username, "big");
     avatarRemove.style.display = fresh && fresh.avatar ? "inline-block" : "none";
+
+    // Deshna sets everyone's country — here you just see yours.
+    const flag = document.getElementById("myCountry");
+    const tag = countryTag(me.username);
+    flag.innerHTML = tag || `<span class="hint">No country yet — ask Deshna to pick yours! 🌍</span>`;
   }
 
   avatarFile.addEventListener("change", (e) => {
@@ -923,7 +949,7 @@ function initLeaderboard() {
       <div class="podium-card place-${idx + 1}${p.username === me.username ? " is-me" : ""}">
         <div class="podium-medal">${MEDALS[idx]}</div>
         ${avatarHtml(p.username, "big")}
-        <b>${escapeHtml(p.username)}</b>
+        <b>${escapeHtml(p.username)} ${countryFlag(p.username)}</b>
         <span class="level-tag">${levelOf(p.username).icon} ${levelOf(p.username).name}</span>
         <span class="podium-score">${toys(p.listed)}</span>
         <small>${p.trades} trade${p.trades === 1 ? "" : "s"} done</small>
@@ -959,7 +985,7 @@ function initLeaderboard() {
         <span class="rank-num">${badge}</span>
         ${avatarHtml(p.username)}
         <div class="info">
-          <b>${escapeHtml(p.username)}${p.username === me.username ? " (you)" : ""}
+          <b>${escapeHtml(p.username)}${p.username === me.username ? " (you)" : ""} ${countryFlag(p.username)}
             <span class="level-tag" title="${lv.listed} toys posted">${lv.icon} ${lv.name}</span></b>
           <small>${p.sold} sold · ${p.bought} bought · ${p.swapped} swapped</small>
         </div>
@@ -1058,6 +1084,18 @@ function initAdmin() {
             <small class="status ${paused ? "sold" : "available"}">
               ${paused ? "Paused ⏸️ — can't log in" : "Playing ✅"}
             </small>
+            <label class="country-pick">
+              🌍
+              <select class="country-sel" data-u="${name}" aria-label="Country for ${name}">
+                <option value="">No country yet</option>
+                ${COUNTRIES.map(
+                  (c) =>
+                    `<option value="${c.code}"${u.country === c.code ? " selected" : ""}>${c.flag} ${escapeHtml(
+                      c.name
+                    )}</option>`
+                ).join("")}
+              </select>
+            </label>
           </div>
           <div class="yn">
             <button class="btn small give-btn" data-u="${name}">+50 🪙</button>
@@ -1095,6 +1133,20 @@ function initAdmin() {
           draw();
         })
       )
+    );
+    // Pick which country a friend flies the flag of
+    fWrap.querySelectorAll(".country-sel").forEach((sel) =>
+      sel.addEventListener("change", async () => {
+        sel.disabled = true;
+        try {
+          toast((await setUserCountry(sel.dataset.u, sel.value)).msg);
+        } catch (err) {
+          console.error(err);
+          toast("Couldn't reach the internet. Try again. 📡");
+        }
+        sel.disabled = false;
+        draw();
+      })
     );
     // Pause a friend (they can't log in) or switch them back on
     fWrap.querySelectorAll(".pause-btn").forEach((b) =>
