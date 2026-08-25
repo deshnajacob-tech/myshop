@@ -44,6 +44,8 @@ import {
   getItems,
   getItemsByOwner,
   getMarketItems,
+  itemImage,
+  describeError,
   buyAllowance,
   LEVELS,
   LEVEL_STEP,
@@ -184,8 +186,8 @@ async function busy(btn, work) {
   try {
     await work();
   } catch (err) {
-    console.error(err);
-    toast("Couldn't reach the internet. Try again. 📡");
+    // Say what actually broke — "something went wrong" helps nobody.
+    toast(describeError(err, "button"));
   } finally {
     btn.disabled = false;
   }
@@ -411,9 +413,9 @@ function initTrade() {
     wrap.innerHTML = offers
       .map((s) =>
         pairRow(
-          s.giveImage,
+          itemImage(s.giveId, s.giveImage),
           s.giveName,
-          s.getImage,
+          itemImage(s.getId, s.getImage),
           s.getName,
           `${escapeHtml(s.from)} wants to swap`,
           `Their <b>${escapeHtml(s.giveName)}</b> for your <b>${escapeHtml(s.getName)}</b>`,
@@ -457,9 +459,9 @@ function initTrade() {
     wrap.innerHTML = mine
       .map((s) =>
         pairRow(
-          s.giveImage,
+          itemImage(s.giveId, s.giveImage),
           s.giveName,
-          s.getImage,
+          itemImage(s.getId, s.getImage),
           s.getName,
           `You asked ${escapeHtml(s.to)}`,
           `Your <b>${escapeHtml(s.giveName)}</b> for their <b>${escapeHtml(s.getName)}</b><br/>${labels[s.status] || s.status}`,
@@ -571,9 +573,9 @@ function initTrade() {
         const iGot = s.from === me.username ? s.getName : s.giveName;
         const friend = s.from === me.username ? s.to : s.from;
         return pairRow(
-          s.from === me.username ? s.giveImage : s.getImage,
+          s.from === me.username ? itemImage(s.giveId, s.giveImage) : itemImage(s.getId, s.getImage),
           iGave,
-          s.from === me.username ? s.getImage : s.giveImage,
+          s.from === me.username ? itemImage(s.getId, s.getImage) : itemImage(s.giveId, s.giveImage),
           iGot,
           `Swapped with ${escapeHtml(friend)}`,
           `You gave <b>${escapeHtml(iGave)}</b> and got <b>${escapeHtml(iGot)}</b> · ${timeAgo(s.doneAt || s.date)}`,
@@ -612,7 +614,7 @@ function initMyToys() {
         previewBox.innerHTML = "<span>Photo preview</span>";
         return;
       }
-      resizeImage(file, 700, (dataUrl) => {
+      resizeImage(file, 560, (dataUrl) => {
         imageData = dataUrl;
         previewBox.innerHTML = `<img src="${dataUrl}" alt="preview" />`;
       });
@@ -724,7 +726,7 @@ function initMyToys() {
       .map(
         (r) => `
       <div class="mini request-row">
-        <img src="${r.image}" alt="" loading="lazy" decoding="async" onerror="this.src='images/placeholder.svg'" />
+        <img src="${itemImage(r.itemId, r.image)}" alt="" loading="lazy" decoding="async" onerror="this.src='images/placeholder.svg'" />
         <div class="info">
           <b>${escapeHtml(r.itemName)}</b>
           <small><b>${escapeHtml(r.buyer)}</b> wants to buy this for ${coins(r.price)}</small>
@@ -873,7 +875,7 @@ function initHistory() {
       .map(
         (r) => `
       <div class="mini">
-        <img src="${r.image}" alt="" loading="lazy" decoding="async" onerror="this.src='images/placeholder.svg'" />
+        <img src="${itemImage(r.itemId, r.image)}" alt="" loading="lazy" decoding="async" onerror="this.src='images/placeholder.svg'" />
         <div class="info">
           <b>${escapeHtml(r.itemName)}</b>
           <small>from <b>${escapeHtml(r.seller)}</b> · ${coins(r.price)}</small>

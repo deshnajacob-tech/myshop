@@ -207,6 +207,20 @@ nothing else to set up and no paid Firebase Storage needed.
 > and checked in the browser, so a technical person could read it. Use a throwaway
 > 4-digit PIN and never one you use anywhere important.
 
+## If something won't work
+
+The site no longer says "Something went wrong" — every failure now says what actually
+happened, and the browser console (F12) has the full error next to a label like
+`acceptRequest failed:`. The one worth knowing:
+
+> **"The database blocked that. Deshna needs to publish the newest firestore.rules…"**
+
+That means the rules in the Firebase console are older than
+[`firestore.rules`](firestore.rules) in this repo. Saying **✅ Yes!** to a buy request is the
+only action that writes to the `txns` collection, so if `txns` is missing from the published
+rules, *every other part of the site works and only that button fails*. Fix: open
+**Firestore Database → Rules**, paste the whole file from this repo, press **Publish**.
+
 ## Keeping it fast
 
 The site holds everything in memory and redraws from that, so a few habits keep it quick as
@@ -222,8 +236,15 @@ the club grows:
   before touching the page, so photos aren't thrown away and decoded again on an unrelated
   update. (When the HTML *doesn't* change, the buttons keep the handlers they already have —
   that's why the code only re-attaches them after a real write.)
+- **Each photo is stored once.** A buy request and a swap offer used to keep their own copy
+  of the toy's picture, so the same ~500 KB lived in two or three places and was downloaded
+  again with every page. They now point at the toy and the picture is looked up when
+  drawing. (Finished trades still keep a copy, so your history keeps its photos even if the
+  toy is taken down later.)
 - **Photos load when they're needed** (`loading="lazy"`), and each one is shrunk in the
-  browser before it's saved — 700px for toys, 240px for profile pictures.
+  browser before it's saved — 560px / ~250 KB for toys, 240px for profile pictures.
+- **Coin gifts aren't downloaded.** The `transfers` record is written but never drawn, so
+  the site doesn't listen to that collection at all — one less full download per page.
 
 ## Setting up your Firebase database (do this once)
 

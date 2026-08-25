@@ -43,7 +43,11 @@ export const ADMIN_PIN = "8351";
 // The only thing still kept per-device: who is logged in here.
 const SESSION_KEY = "ftc_session";
 
+// Everything the site stores. "transfers" is a write-only record of coin
+// gifts — no page draws it, so it isn't listened to and never has to be
+// downloaded; it's still wiped by a full reset.
 const COLLECTIONS = ["users", "items", "requests", "swaps", "txns", "transfers"];
+const LIVE_COLLECTIONS = ["users", "items", "requests", "swaps", "txns"];
 
 let db = null;
 const _cache = { users: [], items: [], requests: [], swaps: [], txns: [], transfers: [] };
@@ -63,6 +67,7 @@ function _idx() {
   if (_index) return _index;
 
   const byName = new Map(); // lowercased name → user
+  const byId = new Map(); // toy id → toy
   const listed = new Map(); // who posted how many toys (the leaderboard score)
   const bought = new Map(); // toys each friend has bought
   const sold = new Map(); // toys each friend has sold
@@ -71,7 +76,10 @@ function _idx() {
   const bump = (map, key) => key != null && map.set(key, (map.get(key) || 0) + 1);
 
   _cache.users.forEach((u) => byName.set(u.username.toLowerCase(), u));
-  _cache.items.forEach((i) => bump(listed, i.listedBy || i.owner));
+  _cache.items.forEach((i) => {
+    byId.set(i.id, i);
+    bump(listed, i.listedBy || i.owner);
+  });
   _cache.txns.forEach((t) => {
     bump(bought, t.buyer);
     bump(sold, t.seller);
@@ -83,8 +91,17 @@ function _idx() {
     bump(swapped, s.to);
   });
 
-  _index = { byName, listed, bought, sold, asked, swapped };
+  _index = { byName, byId, listed, bought, sold, asked, swapped };
   return _index;
+}
+
+// A toy's photo, looked up live. Buy requests and swap offers used to carry
+// their own copy of the picture — that's the same ~500 KB stored two or three
+// times over and downloaded again on every page. Now they just point at the
+// toy, and `fallback` keeps the older rows that still carry a copy working.
+export function itemImage(itemId, fallback) {
+  const item = itemId ? _idx().byId.get(itemId) : null;
+  return (item && item.image) || fallback || "images/placeholder.svg";
 }
 const _count = (map, key) => map.get(key) || 0;
 
@@ -110,7 +127,7 @@ export async function startStore(onChange) {
   };
 
   await Promise.all(
-    COLLECTIONS.map(
+    LIVE_COLLECTIONS.map(
       (name) =>
         new Promise((resolve, reject) => {
           let first = true;
@@ -148,6 +165,27 @@ function _newId(name) {
 }
 function _now() {
   return new Date().toISOString();
+}
+
+// When the cloud refuses something, say WHY. "Something went wrong" sends
+// everyone hunting; "the rules are blocking this" can actually be fixed.
+export function describeError(e, what) {
+  console.error(`${what || "action"} failed:`, e);
+  const code = (e && e.code) || "";
+  const text = (e && e.message) || String(e);
+
+  if (code.includes("permission-denied") || /permission|insufficient/i.test(text))
+    return `The database blocked that. ${ADMIN_DISPLAY_NAME} needs to publish the newest firestore.rules in the Firebase console. 🔒`;
+  if (code.includes("unavailable") || code.includes("deadline") || /offline|network/i.test(text))
+    return "Can't reach the internet right now. Try again in a moment. 📡";
+  if (code.includes("not-found") || /No document to update/i.test(text))
+    return "Something in this trade was deleted. Refresh the page and try again. 🔄";
+  if (code.includes("invalid-argument") || /invalid data|undefined/i.test(text))
+    return "That toy has something missing in it. Take it down and list it again. 🧸";
+  return `Couldn't finish that: ${text}`;
+}
+function _failed(e, what) {
+  return { ok: false, msg: describeError(e, what) };
 }
 
 /* ---------- users & auth ---------- */
@@ -204,7 +242,7 @@ export async function register(username, pin) {
     });
   } catch (e) {
     if (e.message === "taken") return { ok: false, msg: "That name is already taken. Try another." };
-    return { ok: false, msg: "Could not reach the internet. Try again in a moment." };
+    return _failed(e, "register");
   }
 
   return {
@@ -556,7 +594,7 @@ export async function askToBuy(itemId, buyerName) {
   await setDoc(_doc("requests", _newId("requests")), {
     itemId: item.id,
     itemName: item.name,
-    image: item.image,
+    // no image copy — itemImage() reads it from the toy itself
     seller: item.owner,
     buyer: buyerName,
     price: item.price,
@@ -605,7 +643,9 @@ export async function acceptRequest(reqId, sellerName) {
       const req = reqSnap.data();
       if (req.status !== "pending") return { ok: false, msg: "This request is no longer waiting." };
       if (req.seller !== sellerName) return { ok: false, msg: "That's not your toy." };
+      if (!req.itemId || !req.buyer) return { ok: false, msg: "This request is broken — say ❌ No to clear it." };
 
+      const price = Math.max(0, Math.round(Number(req.price) || 0));
       const itemRef = _doc("items", req.itemId);
       const buyerRef = _doc("users", req.buyer.toLowerCase());
       const sellerRef = _doc("users", sellerName.toLowerCase());
@@ -613,24 +653,29 @@ export async function acceptRequest(reqId, sellerName) {
 
       if (!itemSnap.exists() || itemSnap.data().status !== "available")
         return { ok: false, msg: "That toy is already taken." };
-      if (!buyerSnap.exists() || buyerSnap.data().balance < req.price) {
+      // Without this the next line would blow up on a missing account.
+      if (!sellerSnap.exists())
+        return { ok: false, msg: "Your account wasn't found. Log out and log in again." };
+      if (!buyerSnap.exists() || buyerSnap.data().balance < price) {
         tx.update(reqRef, { status: "declined" });
         return { ok: false, msg: `${req.buyer} doesn't have enough coins anymore. Request removed.` };
       }
 
       const item = itemSnap.data();
       const soldAt = _now();
-      tx.update(buyerRef, { balance: buyerSnap.data().balance - req.price });
-      tx.update(sellerRef, { balance: sellerSnap.data().balance + req.price });
+      tx.update(buyerRef, { balance: buyerSnap.data().balance - price });
+      tx.update(sellerRef, { balance: sellerSnap.data().balance + price });
       tx.update(itemRef, { status: "sold", buyer: req.buyer, soldAt });
       tx.update(reqRef, { status: "accepted" });
+      // Firestore throws away the whole transaction if ANY field is undefined,
+      // so every value written here has a fallback.
       tx.set(_doc("txns", txnId), {
         itemId: req.itemId,
-        itemName: item.name,
-        image: item.image,
-        seller: item.owner,
+        itemName: item.name || req.itemName || "Toy",
+        image: item.image || "images/placeholder.svg",
+        seller: item.owner || sellerName,
         buyer: req.buyer,
-        price: req.price,
+        price,
         date: soldAt,
       });
 
@@ -641,8 +686,7 @@ export async function acceptRequest(reqId, sellerName) {
       };
     });
   } catch (e) {
-    console.error(e);
-    return { ok: false, msg: "Something went wrong. Try again." };
+    return _failed(e, "acceptRequest");
   }
 
   // Everyone else who asked for that toy is out of luck.
@@ -704,10 +748,9 @@ export async function offerSwap(giveId, getId, fromName) {
     to: get.owner,
     giveId: give.id,
     giveName: give.name,
-    giveImage: give.image,
     getId: get.id,
     getName: get.name,
-    getImage: get.image,
+    // no image copies — the two toys are looked up by id when drawing
     status: "pending",
     date: _now(),
   });
@@ -761,8 +804,7 @@ export async function acceptSwap(swapId, ownerName) {
       };
     });
   } catch (e) {
-    console.error(e);
-    return { ok: false, msg: "Something went wrong. Try again." };
+    return _failed(e, "acceptSwap");
   }
 
   // Any other offer or buy request for these two toys is now out of date.
@@ -831,6 +873,7 @@ export async function sendCoins(fromName, toName, amount) {
       const toRef = _doc("users", toName.toLowerCase());
       const [fromSnap, toSnap] = [await tx.get(fromRef), await tx.get(toRef)];
       if (!toSnap.exists()) return { ok: false, msg: "That friend was not found." };
+      if (!fromSnap.exists()) return { ok: false, msg: "Your account wasn't found. Log out and log in again." };
       const from = fromSnap.data();
       if (from.balance < amount) return { ok: false, msg: `You only have ${COIN} ${from.balance}.` };
 
@@ -840,12 +883,13 @@ export async function sendCoins(fromName, toName, amount) {
       return { ok: true, msg: `You sent ${COIN} ${amount} to ${toName}! 💝` };
     });
   } catch (e) {
-    console.error(e);
-    return { ok: false, msg: "Something went wrong. Try again." };
+    return _failed(e, "sendCoins");
   }
 }
+// Coin gifts are recorded but not listened to (see LIVE_COLLECTIONS), so this
+// only sees them after a page has fetched them itself.
 export function transfersForUser(name) {
-  return getTransfers()
+  return _cache.transfers
     .filter((t) => t.from === name || t.to === name)
     .sort((a, b) => b.date.localeCompare(a.date));
 }
@@ -958,8 +1002,7 @@ export async function adminAddCoins(username, amount) {
       return { ok: true, msg: `${username} now has ${COIN} ${balance}.` };
     });
   } catch (e) {
-    console.error(e);
-    return { ok: false, msg: "Something went wrong. Try again." };
+    return _failed(e, "adminAddCoins");
   }
 }
 
@@ -1010,12 +1053,12 @@ export function soldBy(username) {
 }
 
 /* ---------- helpers ---------- */
+const _ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" };
+// Called for every name, title and category on screen — one pass, not four.
 export function escapeHtml(str) {
-  return String(str == null ? "" : str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+  if (str == null) return "";
+  const s = String(str);
+  return /[&<>"]/.test(s) ? s.replace(/[&<>"]/g, (c) => _ESCAPES[c]) : s;
 }
 
 export function coins(n) {
@@ -1051,10 +1094,12 @@ export function resizeImage(file, maxDim, cb) {
       canvas.height = height;
       canvas.getContext("2d").drawImage(img, 0, 0, width, height);
 
-      // Squash the quality down until the photo is small enough to store.
-      let dataUrl = canvas.toDataURL("image/jpeg", 0.8);
-      [0.6, 0.45, 0.3].forEach((q) => {
-        if (dataUrl.length > 700000) dataUrl = canvas.toDataURL("image/jpeg", q);
+      // Squash the quality down until the photo is small enough. Every photo
+      // is downloaded by every friend on every page, so smaller is kinder:
+      // ~250 KB still looks sharp on a toy card.
+      let dataUrl = canvas.toDataURL("image/jpeg", 0.78);
+      [0.62, 0.48, 0.34, 0.25].forEach((q) => {
+        if (dataUrl.length > 250000) dataUrl = canvas.toDataURL("image/jpeg", q);
       });
       cb(dataUrl);
     };
