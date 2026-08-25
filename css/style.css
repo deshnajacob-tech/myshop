@@ -327,6 +327,13 @@ a { color: inherit; text-decoration: none; }
 }
 .del-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 0 #ffd6e5; }
 .del-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #ffd6e5; }
+/* The stronger one: takes the toy down AND fines the friend who posted it */
+.del-btn.danger {
+  background: #ffe9e2; color: #c0392b; border-color: #ffcbbd; box-shadow: 0 3px 0 #ffcbbd;
+  white-space: nowrap;
+}
+.del-btn.danger:hover { box-shadow: 0 4px 0 #ffcbbd; }
+.del-btn.danger:active { box-shadow: 0 1px 0 #ffcbbd; }
 .note {
   background: #fffaee; border: 2px dashed #f6dfa8; border-radius: 20px; padding: 15px 18px;
   font-size: 13.5px; color: #7a6120; margin-top: 16px; line-height: 1.6; font-weight: 600;

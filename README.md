@@ -28,6 +28,7 @@ You buy and sell with virtual coins on the site; the actual toys are handed over
 - 📜 **History page** — bought, sold, your asks, and a coin summary
 - 🏆 **Leaderboard** — friends ranked by how many toys they've listed, with a podium, the
   level chart and a "list 2 more to pass Aria" nudge
+- 🧹 **Take toys down** — Deshna can remove any toy, or remove it **with a 🪙 3 penalty** for fakes
 - ⏸️ **Pause a friend** — they keep everything but can't log in until Deshna switches them on
 - 🗑️ **Remove a friend** — deletes their account and the toys they still own, for good
 - 👑 **Admin dashboard** (for Deshna) — accept/decline sign-ups, see all friends, top up/take coins,
@@ -84,6 +85,19 @@ The Marketplace shows a banner with how many buys you have left, and **My Toys**
 same sum under your listings. If someone takes a listing back down after asking for a toy,
 the seller sees "…has to list another toy" instead of the trade going through — the ask
 just waits until they do.
+
+### Taking a toy down 🧹
+Every toy in the admin **🧸 All Toys** list has two buttons:
+
+- **Remove** — the toy is deleted, and any buy requests or swap offers still pointing at it
+  are cancelled. Nobody loses coins.
+- **Penalty −🪙 3** — the same, **plus** the friend who posted it loses 🪙 3. This is the one
+  for fake toys, joke listings and photos of nothing. Coins never go below 🪙 0.
+
+The fine always lands on whoever **posted** the toy (`listedBy`), not whoever happens to own
+it now after a swap. Change the amount with `PENALTY_COINS` in
+[`js/store.js`](js/store.js). Both buttons ask "are you sure?" first, and a toy that's
+already sold can be taken down too — the trade stays in everyone's history.
 
 ### Pausing and removing friends ⏸️ 🗑️
 Every friend in the 👥 **Friends** list on the admin page has two buttons besides the coin
@@ -192,6 +206,24 @@ nothing else to set up and no paid Firebase Storage needed.
 > ⚠️ The PIN is a simple prototype login, not real security. It is stored in the database
 > and checked in the browser, so a technical person could read it. Use a throwaway
 > 4-digit PIN and never one you use anywhere important.
+
+## Keeping it fast
+
+The site holds everything in memory and redraws from that, so a few habits keep it quick as
+the club grows:
+
+- **Counted once, not once per row.** `js/store.js` keeps small look-up maps (who is who,
+  how many toys each friend posted, bought, sold and swapped). They're rebuilt only when
+  the database changes, so drawing the leaderboard or the admin list no longer walks every
+  toy for every friend.
+- **One redraw per change.** A single trade touches three collections at once; the redraws
+  are gathered up and run once on the next animation frame instead of three times in a row.
+- **Unchanged lists are left alone.** Every list checks whether its HTML actually changed
+  before touching the page, so photos aren't thrown away and decoded again on an unrelated
+  update. (When the HTML *doesn't* change, the buttons keep the handlers they already have —
+  that's why the code only re-attaches them after a real write.)
+- **Photos load when they're needed** (`loading="lazy"`), and each one is shrunk in the
+  browser before it's saved — 700px for toys, 240px for profile pictures.
 
 ## Setting up your Firebase database (do this once)
 

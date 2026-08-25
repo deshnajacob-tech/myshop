@@ -74,8 +74,21 @@ import {
   getTxns,
   adminAddCoins,
   adminSetAllCoins,
+  adminRemoveItem,
   adminResetAll,
+  PENALTY_COINS,
 } from "./store.js";
+
+// Writing the same HTML again makes the browser throw away every photo and
+// decode it a second time, so only touch the DOM when something really
+// changed. Returns true when it did — if it didn't, the old buttons are
+// still there with their click handlers, so DON'T attach them again.
+function setHtml(el, html) {
+  if (!el || el._lastHtml === html) return false;
+  el._lastHtml = html;
+  el.innerHTML = html;
+  return true;
+}
 
 // Each page sets this to its own draw function so live updates from other
 // computers can refresh what's on screen.
@@ -302,12 +315,15 @@ function initMarket() {
     if (activeCond !== "All") list = list.filter((i) => i.condition === activeCond);
 
     if (!list.length) {
-      grid.innerHTML = `<div class="empty">No toys up for trade right now 🧸<br/>
-        Ask your friends to list some, or <a href="mytoys.html" style="color:var(--rose)">list your own</a>!</div>`;
+      setHtml(
+        grid,
+        `<div class="empty">No toys up for trade right now 🧸<br/>
+        Ask your friends to list some, or <a href="mytoys.html" style="color:var(--rose)">list your own</a>!</div>`
+      );
       return;
     }
 
-    grid.innerHTML = list
+    const html = list
       .map((i) => {
         const asked = hasPendingRequest(i.id, me.username);
         const canAfford = fresh.balance >= i.price;
@@ -324,7 +340,7 @@ function initMarket() {
         return `
       <article class="card">
         <div class="card-img">
-          <img src="${i.image}" alt="${escapeHtml(i.name)}" onerror="this.src='images/placeholder.svg'" />
+          <img src="${i.image}" alt="${escapeHtml(i.name)}" loading="lazy" decoding="async" onerror="this.src='images/placeholder.svg'" />
           <div class="card-badges">
             <span class="badge ${i.condition === "new" ? "new" : "handmade"}">${i.condition}</span>
           </div>
@@ -341,6 +357,9 @@ function initMarket() {
       </article>`;
       })
       .join("");
+
+    // Same toys as last time? Then the buttons below are already wired up.
+    if (!setHtml(grid, html)) return;
 
     grid.querySelectorAll(".ask-btn").forEach((btn) => {
       btn.addEventListener("click", () =>
@@ -369,9 +388,9 @@ function initTrade() {
     return `
       <div class="mini swap-row">
         <div class="swap-pair">
-          <img src="${giveImg}" alt="${escapeHtml(giveName)}" onerror="this.src='images/placeholder.svg'" />
+          <img src="${giveImg}" alt="${escapeHtml(giveName)}" loading="lazy" decoding="async" onerror="this.src='images/placeholder.svg'" />
           <span class="swap-arrow">🔄</span>
-          <img src="${getImg}" alt="${escapeHtml(getName)}" onerror="this.src='images/placeholder.svg'" />
+          <img src="${getImg}" alt="${escapeHtml(getName)}" loading="lazy" decoding="async" onerror="this.src='images/placeholder.svg'" />
         </div>
         <div class="info">
           <b>${title}</b>
@@ -479,12 +498,15 @@ function initTrade() {
       : `🌍 You don't have a country yet, so you can swap with everyone. Ask Deshna to pick yours!`;
 
     if (!theirs.length) {
-      grid.innerHTML = `<div class="empty">No toys to swap for right now 🧸<br/>
-        Ask your friends to list some in <a href="mytoys.html" style="color:var(--rose)">My Toys</a>!</div>`;
+      setHtml(
+        grid,
+        `<div class="empty">No toys to swap for right now 🧸<br/>
+        Ask your friends to list some in <a href="mytoys.html" style="color:var(--rose)">My Toys</a>!</div>`
+      );
       return;
     }
 
-    grid.innerHTML = theirs
+    const html = theirs
       .map((i) => {
         const options = myToys
           .map(
@@ -504,7 +526,7 @@ function initTrade() {
         return `
       <article class="card">
         <div class="card-img">
-          <img src="${i.image}" alt="${escapeHtml(i.name)}" onerror="this.src='images/placeholder.svg'" />
+          <img src="${i.image}" alt="${escapeHtml(i.name)}" loading="lazy" decoding="async" onerror="this.src='images/placeholder.svg'" />
           <div class="card-badges">
             <span class="badge ${i.condition === "new" ? "new" : "handmade"}">${i.condition}</span>
           </div>
@@ -518,6 +540,9 @@ function initTrade() {
       </article>`;
       })
       .join("");
+
+    // Unchanged board? The pickers and buttons are already wired up.
+    if (!setHtml(grid, html)) return;
 
     grid.querySelectorAll(".offer-btn").forEach((btn) =>
       btn.addEventListener("click", () =>
@@ -662,7 +687,7 @@ function initMyToys() {
       .map(
         (i) => `
       <div class="mini">
-        <img src="${i.image}" alt="" onerror="this.src='images/placeholder.svg'" />
+        <img src="${i.image}" alt="" loading="lazy" decoding="async" onerror="this.src='images/placeholder.svg'" />
         <div class="info">
           <b>${escapeHtml(i.name)}</b>
           <small>${escapeHtml(i.category)} · ${i.condition} · ${coins(i.price)}</small>
@@ -699,7 +724,7 @@ function initMyToys() {
       .map(
         (r) => `
       <div class="mini request-row">
-        <img src="${r.image}" alt="" onerror="this.src='images/placeholder.svg'" />
+        <img src="${r.image}" alt="" loading="lazy" decoding="async" onerror="this.src='images/placeholder.svg'" />
         <div class="info">
           <b>${escapeHtml(r.itemName)}</b>
           <small><b>${escapeHtml(r.buyer)}</b> wants to buy this for ${coins(r.price)}</small>
@@ -848,7 +873,7 @@ function initHistory() {
       .map(
         (r) => `
       <div class="mini">
-        <img src="${r.image}" alt="" onerror="this.src='images/placeholder.svg'" />
+        <img src="${r.image}" alt="" loading="lazy" decoding="async" onerror="this.src='images/placeholder.svg'" />
         <div class="info">
           <b>${escapeHtml(r.itemName)}</b>
           <small>from <b>${escapeHtml(r.seller)}</b> · ${coins(r.price)}</small>
@@ -976,7 +1001,7 @@ function initLeaderboard() {
     }
 
     // The full ranking
-    list.innerHTML = board
+    const rankHtml = board
       .map((p, i) => {
         const badge = MEDALS[i] || `#${i + 1}`;
         const lv = levelOf(p.username);
@@ -993,6 +1018,7 @@ function initLeaderboard() {
       </div>`;
       })
       .join("");
+    setHtml(list, rankHtml);
   }
 
   _redraw = draw;
@@ -1028,10 +1054,12 @@ function initAdmin() {
     // Friends waiting to be let in
     const pWrap = document.getElementById("pendingList");
     document.getElementById("aPendingCount").textContent = waiting.length ? `(${waiting.length})` : "";
-    pWrap.innerHTML = waiting.length
-      ? waiting
-          .map(
-            (u) => `
+    const pendingChanged = setHtml(
+      pWrap,
+      waiting.length
+        ? waiting
+            .map(
+              (u) => `
         <div class="mini">
           ${avatarHtml(u.username)}
           <div class="info">
@@ -1043,31 +1071,34 @@ function initAdmin() {
             <button class="btn small ghost nope-btn" data-u="${escapeHtml(u.username)}">❌ No</button>
           </div>
         </div>`
-          )
-          .join("")
-      : `<p class="hint">Nobody is waiting right now. 🎈</p>`;
+            )
+            .join("")
+        : `<p class="hint">Nobody is waiting right now. 🎈</p>`
+    );
 
-    pWrap.querySelectorAll(".ok-btn").forEach((b) =>
-      b.addEventListener("click", () =>
-        busy(b, async () => {
-          toast((await approveUser(b.dataset.u)).msg);
-          draw();
-        })
-      )
-    );
-    pWrap.querySelectorAll(".nope-btn").forEach((b) =>
-      b.addEventListener("click", () =>
-        busy(b, async () => {
-          if (!confirm(`Remove ${b.dataset.u}'s sign-up?`)) return;
-          toast((await declineUser(b.dataset.u)).msg);
-          draw();
-        })
-      )
-    );
+    if (pendingChanged) {
+      pWrap.querySelectorAll(".ok-btn").forEach((b) =>
+        b.addEventListener("click", () =>
+          busy(b, async () => {
+            toast((await approveUser(b.dataset.u)).msg);
+            draw();
+          })
+        )
+      );
+      pWrap.querySelectorAll(".nope-btn").forEach((b) =>
+        b.addEventListener("click", () =>
+          busy(b, async () => {
+            if (!confirm(`Remove ${b.dataset.u}'s sign-up?`)) return;
+            toast((await declineUser(b.dataset.u)).msg);
+            draw();
+          })
+        )
+      );
+    }
 
     // Friends: coins, pause / switch on, and remove for good
     const fWrap = document.getElementById("friendList");
-    fWrap.innerHTML = members.length
+    const friendsHtml = members.length
       ? members
           .map((u) => {
             const toys = getItemsByOwner(u.username).length;
@@ -1114,105 +1145,140 @@ function initAdmin() {
           .join("")
       : `<p class="hint">No friends have registered yet.</p>`;
 
-    fWrap.querySelectorAll(".give-btn").forEach((b) =>
-      b.addEventListener("click", () =>
-        busy(b, async () => {
-          await adminAddCoins(b.dataset.u, 50);
-          toast(`Gave ${COIN} 50 to ${b.dataset.u}`);
-          renderNav("admin");
+    // Only re-wire the buttons when the list actually changed.
+    const friendsChanged = setHtml(fWrap, friendsHtml);
+    if (friendsChanged) {
+      fWrap.querySelectorAll(".give-btn").forEach((b) =>
+        b.addEventListener("click", () =>
+          busy(b, async () => {
+            await adminAddCoins(b.dataset.u, 50);
+            toast(`Gave ${COIN} 50 to ${b.dataset.u}`);
+            renderNav("admin");
+            draw();
+          })
+        )
+      );
+      fWrap.querySelectorAll(".take-btn").forEach((b) =>
+        b.addEventListener("click", () =>
+          busy(b, async () => {
+            await adminAddCoins(b.dataset.u, -50);
+            toast(`Took ${COIN} 50 from ${b.dataset.u}`);
+            renderNav("admin");
+            draw();
+          })
+        )
+      );
+      // Pick which country a friend flies the flag of
+      fWrap.querySelectorAll(".country-sel").forEach((sel) =>
+        sel.addEventListener("change", async () => {
+          sel.disabled = true;
+          try {
+            toast((await setUserCountry(sel.dataset.u, sel.value)).msg);
+          } catch (err) {
+            console.error(err);
+            toast("Couldn't reach the internet. Try again. 📡");
+          }
+          sel.disabled = false;
           draw();
         })
-      )
-    );
-    fWrap.querySelectorAll(".take-btn").forEach((b) =>
-      b.addEventListener("click", () =>
-        busy(b, async () => {
-          await adminAddCoins(b.dataset.u, -50);
-          toast(`Took ${COIN} 50 from ${b.dataset.u}`);
-          renderNav("admin");
-          draw();
-        })
-      )
-    );
-    // Pick which country a friend flies the flag of
-    fWrap.querySelectorAll(".country-sel").forEach((sel) =>
-      sel.addEventListener("change", async () => {
-        sel.disabled = true;
-        try {
-          toast((await setUserCountry(sel.dataset.u, sel.value)).msg);
-        } catch (err) {
-          console.error(err);
-          toast("Couldn't reach the internet. Try again. 📡");
-        }
-        sel.disabled = false;
-        draw();
-      })
-    );
-    // Pause a friend (they can't log in) or switch them back on
-    fWrap.querySelectorAll(".pause-btn").forEach((b) =>
-      b.addEventListener("click", () =>
-        busy(b, async () => {
-          const name = b.dataset.u;
-          const turnOn = b.dataset.on === "1";
-          if (!turnOn && !confirm(`Pause ${name}?\n\nThey stay in the club with all their coins and toys, but can't log in until you switch them back on.`))
-            return;
-          toast((await setUserActive(name, turnOn)).msg);
-          draw();
-        })
-      )
-    );
-    // Remove a friend for good
-    fWrap.querySelectorAll(".kick-btn").forEach((b) =>
-      b.addEventListener("click", () =>
-        busy(b, async () => {
-          const name = b.dataset.u;
-          if (!confirm(`Remove ${name} from the club for good?\n\nTheir account and the toys they still own are deleted and can't be brought back. Pause them instead if you might change your mind.`))
-            return;
-          toast((await removeUser(name)).msg);
-          renderNav("admin");
-          draw();
-        })
-      )
-    );
+      );
+      // Pause a friend (they can't log in) or switch them back on
+      fWrap.querySelectorAll(".pause-btn").forEach((b) =>
+        b.addEventListener("click", () =>
+          busy(b, async () => {
+            const name = b.dataset.u;
+            const turnOn = b.dataset.on === "1";
+            if (!turnOn && !confirm(`Pause ${name}?\n\nThey stay in the club with all their coins and toys, but can't log in until you switch them back on.`))
+              return;
+            toast((await setUserActive(name, turnOn)).msg);
+            draw();
+          })
+        )
+      );
+      // Remove a friend for good
+      fWrap.querySelectorAll(".kick-btn").forEach((b) =>
+        b.addEventListener("click", () =>
+          busy(b, async () => {
+            const name = b.dataset.u;
+            if (!confirm(`Remove ${name} from the club for good?\n\nTheir account and the toys they still own are deleted and can't be brought back. Pause them instead if you might change your mind.`))
+              return;
+            toast((await removeUser(name)).msg);
+            renderNav("admin");
+            draw();
+          })
+        )
+      );
+    }
 
-    // All toys
+    // All toys — Deshna can take any of them down
     const tWrap = document.getElementById("allToys");
-    tWrap.innerHTML = items.length
-      ? items
-          .slice()
-          .reverse()
-          .map(
-            (i) => `
+    const toysChanged = setHtml(
+      tWrap,
+      items.length
+        ? items
+            .slice()
+            .reverse()
+            .map(
+              (i) => `
         <div class="mini">
-          <img src="${i.image}" alt="" onerror="this.src='images/placeholder.svg'" />
+          <img src="${i.image}" alt="" loading="lazy" decoding="async" onerror="this.src='images/placeholder.svg'" />
           <div class="info">
             <b>${escapeHtml(i.name)}</b>
-            <small>${escapeHtml(i.owner)} · ${i.condition} · ${coins(i.price)}</small>
+            <small>${escapeHtml(i.owner)} ${countryFlag(i.owner)} · ${i.condition} · ${coins(i.price)}</small>
             <small class="status ${i.status}">${i.status === "sold" ? "Sold to " + escapeHtml(i.buyer) : "Available"}</small>
           </div>
+          <div class="yn">
+            <button class="del-btn toy-del" data-id="${i.id}" data-name="${escapeHtml(i.name)}">Remove</button>
+            <button class="del-btn danger toy-pen" data-id="${i.id}" data-name="${escapeHtml(i.name)}"
+                    title="Fake or silly toy: take it down and fine the friend who posted it">
+              Penalty −${COIN} ${PENALTY_COINS}
+            </button>
+          </div>
         </div>`
-          )
-          .join("")
-      : `<p class="hint">No toys listed yet.</p>`;
+            )
+            .join("")
+        : `<p class="hint">No toys listed yet.</p>`
+    );
+
+    // Take a toy down, with or without the coin fine.
+    // (Skipped when the list didn't change — those buttons already work.)
+    const takeDown = (btn, penalty) =>
+      busy(btn, async () => {
+        const name = btn.dataset.name;
+        const question = penalty
+          ? `Take "${name}" down AND fine the friend who posted it ${COIN} ${PENALTY_COINS}?\n\nUse this for fake or silly toys.`
+          : `Take "${name}" down?\n\nThe toy is deleted and any asks or swap offers for it are cancelled.`;
+        if (!confirm(question)) return;
+        toast((await adminRemoveItem(btn.dataset.id, penalty)).msg);
+        renderNav("admin");
+        draw();
+      });
+    if (toysChanged) {
+      tWrap.querySelectorAll(".toy-del").forEach((b) => b.addEventListener("click", () => takeDown(b, false)));
+      tWrap.querySelectorAll(".toy-pen").forEach((b) => b.addEventListener("click", () => takeDown(b, true)));
+    }
 
     // All trades
     const trWrap = document.getElementById("allTrades");
     const sorted = txns.slice().sort((a, b) => b.date.localeCompare(a.date));
-    trWrap.innerHTML = sorted.length
-      ? sorted
-          .map(
-            (t) => `
+    setHtml(
+      trWrap,
+      sorted.length
+        ? sorted
+            .map(
+              (t) => `
         <div class="mini">
-          <img src="${t.image}" alt="" onerror="this.src='images/placeholder.svg'" />
+          <img src="${t.image}" alt="" loading="lazy" decoding="async" onerror="this.src='images/placeholder.svg'" />
           <div class="info">
             <b>${escapeHtml(t.itemName)}</b>
             <small>${escapeHtml(t.seller)} → ${escapeHtml(t.buyer)} · ${timeAgo(t.date)}</small>
           </div>
           <span class="price">${coins(t.price)}</span>
         </div>`
-          )
-          .join("")
-      : `<p class="hint">No trades yet.</p>`;
+            )
+            .join("")
+        : `<p class="hint">No trades yet.</p>`
+    );
   }
 
   const setAllBtn = document.getElementById("setAllBtn");
@@ -1243,14 +1309,14 @@ function initAdmin() {
 function renderTxnList(elId, list, who, label) {
   const wrap = document.getElementById(elId);
   if (!list.length) {
-    wrap.innerHTML = `<p class="hint">Nothing here yet.</p>`;
+    setHtml(wrap, `<p class="hint">Nothing here yet.</p>`);
     return;
   }
-  wrap.innerHTML = list
+  const html = list
     .map(
       (t) => `
     <div class="mini">
-      <img src="${t.image}" alt="" onerror="this.src='images/placeholder.svg'" />
+      <img src="${t.image}" alt="" loading="lazy" decoding="async" onerror="this.src='images/placeholder.svg'" />
       <div class="info">
         <b>${escapeHtml(t.itemName)}</b>
         <small>${label} <b>${escapeHtml(t[who])}</b> · ${timeAgo(t.date)}</small>
@@ -1259,4 +1325,5 @@ function renderTxnList(elId, list, who, label) {
     </div>`
     )
     .join("");
+  setHtml(wrap, html);
 }

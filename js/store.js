@@ -52,6 +52,42 @@ export function isAdmin(user) {
   return !!user && user.username.toLowerCase() === ADMIN_NAME;
 }
 
+/* ---------- fast look-ups ----------
+   Pages ask the same questions once per friend and once per toy while they
+   draw ("how many toys has Aria posted?", "who is `aria`?"). Walking every
+   array each time is fine with 5 friends and slow with 50, so the answers are
+   counted ONCE per change and kept in these little maps. Any snapshot throws
+   them away, so they can never go stale.                                   */
+let _index = null;
+function _idx() {
+  if (_index) return _index;
+
+  const byName = new Map(); // lowercased name → user
+  const listed = new Map(); // who posted how many toys (the leaderboard score)
+  const bought = new Map(); // toys each friend has bought
+  const sold = new Map(); // toys each friend has sold
+  const asked = new Map(); // buy requests still waiting, per buyer
+  const swapped = new Map(); // finished swaps, per friend
+  const bump = (map, key) => key != null && map.set(key, (map.get(key) || 0) + 1);
+
+  _cache.users.forEach((u) => byName.set(u.username.toLowerCase(), u));
+  _cache.items.forEach((i) => bump(listed, i.listedBy || i.owner));
+  _cache.txns.forEach((t) => {
+    bump(bought, t.buyer);
+    bump(sold, t.seller);
+  });
+  _cache.requests.forEach((r) => r.status === "pending" && bump(asked, r.buyer));
+  _cache.swaps.forEach((s) => {
+    if (s.status !== "accepted") return;
+    bump(swapped, s.from);
+    bump(swapped, s.to);
+  });
+
+  _index = { byName, listed, bought, sold, asked, swapped };
+  return _index;
+}
+const _count = (map, key) => map.get(key) || 0;
+
 /* ---------- connecting ---------- */
 // Call this once per page before drawing anything.
 // onChange() runs whenever ANY friend, on any computer, changes something.
@@ -59,6 +95,19 @@ let _live = false;
 export async function startStore(onChange) {
   if (!CONFIG_OK) throw new Error("Firebase is not set up yet — see js/firebase-config.js");
   if (!db) db = getFirestore(initializeApp(firebaseConfig));
+
+  // One trade can change three collections at once (item, request, coins).
+  // Redrawing three times in a row just makes the page flicker, so the
+  // redraws are gathered up and run once on the next animation frame.
+  let queued = false;
+  const redrawSoon = () => {
+    if (queued || !onChange) return;
+    queued = true;
+    requestAnimationFrame(() => {
+      queued = false;
+      onChange();
+    });
+  };
 
   await Promise.all(
     COLLECTIONS.map(
@@ -69,11 +118,12 @@ export async function startStore(onChange) {
             collection(db, name),
             (snap) => {
               _cache[name] = snap.docs.map((d) => ({ ...d.data(), id: d.id }));
+              _index = null; // the counted answers are out of date now
               if (first) {
                 first = false;
                 resolve();
-              } else if (_live && onChange) {
-                onChange();
+              } else if (_live) {
+                redrawSoon();
               }
             },
             (err) => (first ? reject(err) : console.error(name, err))
@@ -105,13 +155,12 @@ export function getUsers() {
   return _cache.users.slice();
 }
 export function findUser(username) {
-  const u = (username || "").trim().toLowerCase();
-  return getUsers().find((x) => x.username.toLowerCase() === u) || null;
+  return _idx().byName.get((username || "").trim().toLowerCase()) || null;
 }
 // Everyone Deshna has said yes to AND hasn't paused — the friends who can
 // actually play right now.
 export function getApprovedUsers() {
-  return getUsers().filter((u) => u.status === "approved");
+  return _cache.users.filter((u) => u.status === "approved");
 }
 // A paused friend keeps their account, coins and toys, but can't log in
 // until Deshna switches them back on.
@@ -120,13 +169,13 @@ export function isPaused(user) {
 }
 // Everyone who is in the club, playing or paused (not the ones still waiting).
 export function getMemberUsers() {
-  return getUsers()
+  return _cache.users
     .filter((u) => u.status === "approved" || u.status === "paused")
     .sort((a, b) => a.joined.localeCompare(b.joined));
 }
 // Friends still waiting for Deshna to say yes.
 export function getPendingUsers() {
-  return getUsers()
+  return _cache.users
     .filter((u) => u.status === "pending")
     .sort((a, b) => a.joined.localeCompare(b.joined));
 }
@@ -319,14 +368,14 @@ export function getItems() {
   return _cache.items.slice();
 }
 export function getItemsByOwner(username) {
-  return getItems().filter((i) => i.owner === username);
+  return _cache.items.filter((i) => i.owner === username);
 }
 // Available toys from everyone EXCEPT the given user. Toys are hidden when
 // their owner is paused (they can't log in to say yes) or lives in another
 // country (you only trade inside your own).
 export function getMarketItems(username) {
   const playing = new Set(getApprovedUsers().map((u) => u.username));
-  return getItems().filter(
+  return _cache.items.filter(
     (i) =>
       i.status === "available" &&
       i.owner !== username &&
@@ -355,7 +404,7 @@ export async function addItem({ owner, name, condition, category, price, descrip
 
   // Counted before the write, because the live cache won't have the new toy
   // for another moment yet.
-  const listedAfter = getItems().filter((i) => (i.listedBy || i.owner) === owner).length + 1;
+  const listedAfter = _cache.items.filter((i) => (i.listedBy || i.owner) === owner).length + 1;
 
   const id = _newId("items");
   await setDoc(_doc("items", id), item);
@@ -365,7 +414,7 @@ export async function addItem({ owner, name, condition, category, price, descrip
 }
 
 export async function deleteItem(id, owner) {
-  const item = getItems().find((i) => i.id === id);
+  const item = _cache.items.find((i) => i.id === id);
   if (!item) return { ok: false, msg: "Item not found." };
   if (item.owner !== owner) return { ok: false, msg: "You can only remove your own toys." };
   if (item.status === "sold") return { ok: false, msg: "Sold toys stay in your history." };
@@ -378,6 +427,7 @@ export async function deleteItem(id, owner) {
 export const LEVEL_STEP = 10; // toys posted per level
 export const LEVEL_BONUS = 5; // coins for reaching a new level
 export const LIST_REWARD = 1; // coins for posting one toy
+export const PENALTY_COINS = 3; // coins lost when Deshna takes down a fake toy
 
 // The chart everyone is climbing. Past the last row the badge stays Legend
 // and only the level number keeps going up.
@@ -401,7 +451,7 @@ export function levelBadge(level) {
 // earned, how many toys they've posted, and what the next level costs.
 export function levelOf(username) {
   const user = findUser(username);
-  const listed = getItems().filter((i) => (i.listedBy || i.owner) === username).length;
+  const listed = _count(_idx().listed, username);
   // A level is earned for good — taking a toy back down never demotes you.
   const level = Math.max(user ? user.level || 0 : 0, Math.floor(listed / LEVEL_STEP));
   const nextAt = (level + 1) * LEVEL_STEP;
@@ -446,16 +496,14 @@ async function _rewardForListing(username, listedAfter) {
 // Who has put the most toys up for trade? Toys listed is the score;
 // trades done breaks a tie, then whoever joined first.
 export function leaderboard() {
-  const items = getItems();
-  const doneSwaps = getSwaps().filter((s) => s.status === "accepted");
-  const txns = getTxns();
+  const idx = _idx();
 
   return getApprovedUsers()
     .map((u) => {
-      const listed = items.filter((i) => (i.listedBy || i.owner) === u.username).length;
-      const sold = txns.filter((t) => t.seller === u.username).length;
-      const bought = txns.filter((t) => t.buyer === u.username).length;
-      const swapped = doneSwaps.filter((s) => s.from === u.username || s.to === u.username).length;
+      const listed = _count(idx.listed, u.username);
+      const sold = _count(idx.sold, u.username);
+      const bought = _count(idx.bought, u.username);
+      const swapped = _count(idx.swapped, u.username);
       return { username: u.username, listed, sold, bought, swapped, trades: sold + bought + swapped, joined: u.joined };
     })
     .sort((a, b) => b.listed - a.listed || b.trades - a.trades || a.joined.localeCompare(b.joined));
@@ -467,9 +515,10 @@ export function leaderboard() {
 // (they were listed by whoever put them up), so nobody can just collect.
 // Asks that are still waiting count too, or you could ask for ten toys at once.
 export function buyAllowance(username) {
-  const listed = getItems().filter((i) => (i.listedBy || i.owner) === username).length;
-  const bought = getTxns().filter((t) => t.buyer === username).length;
-  const waiting = getRequests().filter((r) => r.buyer === username && r.status === "pending").length;
+  const idx = _idx();
+  const listed = _count(idx.listed, username);
+  const bought = _count(idx.bought, username);
+  const waiting = _count(idx.asked, username);
   return { listed, bought, waiting, left: Math.max(0, listed - bought - waiting) };
 }
 
@@ -478,11 +527,11 @@ export function getRequests() {
   return _cache.requests.slice();
 }
 export function hasPendingRequest(itemId, buyerName) {
-  return getRequests().some((r) => r.itemId === itemId && r.buyer === buyerName && r.status === "pending");
+  return _cache.requests.some((r) => r.itemId === itemId && r.buyer === buyerName && r.status === "pending");
 }
 // A buyer asks to buy a toy. Coins do NOT move until the seller says yes.
 export async function askToBuy(itemId, buyerName) {
-  const item = getItems().find((i) => i.id === itemId);
+  const item = _cache.items.find((i) => i.id === itemId);
   if (!item) return { ok: false, msg: "This toy is gone." };
   if (item.status !== "available") return { ok: false, msg: "Sorry, that toy is already taken." };
   if (item.owner === buyerName) return { ok: false, msg: "That's your own toy! 😄" };
@@ -531,7 +580,7 @@ export function requestsByBuyer(buyerName) {
 // Seller says YES → move coins, mark sold, cancel other asks for that toy.
 // Done as one transaction so two computers can't sell the same toy twice.
 export async function acceptRequest(reqId, sellerName) {
-  const cached = getRequests().find((r) => r.id === reqId);
+  const cached = _cache.requests.find((r) => r.id === reqId);
   if (!cached) return { ok: false, msg: "This request is no longer waiting." };
 
   // Countries can change between the ask and the yes.
@@ -602,7 +651,7 @@ export async function acceptRequest(reqId, sellerName) {
 }
 
 export async function declineRequest(reqId, sellerName) {
-  const req = getRequests().find((r) => r.id === reqId);
+  const req = _cache.requests.find((r) => r.id === reqId);
   if (!req || req.seller !== sellerName) return { ok: false, msg: "Can't do that." };
   await updateDoc(_doc("requests", reqId), { status: "declined" });
   return { ok: true, msg: "Maybe next time! Request said no." };
@@ -632,7 +681,7 @@ export function swapHistoryFor(name) {
     .sort((a, b) => b.date.localeCompare(a.date));
 }
 export function hasPendingSwap(giveId, getId) {
-  return getSwaps().some((s) => s.giveId === giveId && s.getId === getId && s.status === "pending");
+  return _cache.swaps.some((s) => s.giveId === giveId && s.getId === getId && s.status === "pending");
 }
 
 // "I'll give you my Pop It for your Fidget Cube."
@@ -667,7 +716,7 @@ export async function offerSwap(giveId, getId, fromName) {
 
 // Owner says YES → the two toys change hands. No coins move at all.
 export async function acceptSwap(swapId, ownerName) {
-  const waiting = getSwaps().find((x) => x.id === swapId);
+  const waiting = _cache.swaps.find((x) => x.id === swapId);
   if (waiting && !sameCountry(ownerName, waiting.from))
     return { ok: false, msg: differentCountryMsg(ownerName, waiting.from) };
 
@@ -722,7 +771,7 @@ export async function acceptSwap(swapId, ownerName) {
 }
 
 export async function declineSwap(swapId, ownerName) {
-  const s = getSwaps().find((x) => x.id === swapId);
+  const s = _cache.swaps.find((x) => x.id === swapId);
   if (!s || s.to !== ownerName || s.status !== "pending") return { ok: false, msg: "Can't do that." };
   await updateDoc(_doc("swaps", swapId), { status: "declined" });
   return { ok: true, msg: "Maybe next time! Swap said no." };
@@ -730,7 +779,7 @@ export async function declineSwap(swapId, ownerName) {
 
 // The friend who made the offer changes their mind.
 export async function cancelSwap(swapId, fromName) {
-  const s = getSwaps().find((x) => x.id === swapId);
+  const s = _cache.swaps.find((x) => x.id === swapId);
   if (!s || s.from !== fromName || s.status !== "pending") return { ok: false, msg: "Can't do that." };
   await updateDoc(_doc("swaps", swapId), { status: "cancelled" });
   return { ok: true, msg: "Offer taken back." };
@@ -742,13 +791,13 @@ async function _cancelPendingFor(itemIds, keepSwapId, keepRequestId) {
   const batch = writeBatch(db);
   let touched = false;
 
-  getSwaps().forEach((s) => {
+  _cache.swaps.forEach((s) => {
     if (s.status === "pending" && s.id !== keepSwapId && (itemIds.includes(s.giveId) || itemIds.includes(s.getId))) {
       batch.update(_doc("swaps", s.id), { status: "declined" });
       touched = true;
     }
   });
-  getRequests().forEach((r) => {
+  _cache.requests.forEach((r) => {
     if (r.status === "pending" && r.id !== keepRequestId && itemIds.includes(r.itemId)) {
       batch.update(_doc("requests", r.id), { status: "declined" });
       touched = true;
@@ -866,11 +915,33 @@ export async function removeUser(username) {
   return { ok: true, msg: `${name} was removed, along with the toys they still had.` };
 }
 
+// Deshna can take down anybody's toy. "Penalty" is for fake or silly
+// listings: the toy goes AND the friend who posted it loses PENALTY_COINS,
+// so it costs something to waste everyone's time.
+export async function adminRemoveItem(itemId, penalty) {
+  const item = _cache.items.find((i) => i.id === itemId);
+  if (!item) return { ok: false, msg: "That toy is already gone." };
+
+  const blame = item.listedBy || item.owner; // whoever posted it, not who holds it now
+  await deleteDoc(_doc("items", itemId));
+  await _cancelPendingFor([itemId]);
+
+  if (!penalty) return { ok: true, msg: `"${item.name}" was taken down.` };
+
+  const res = await adminAddCoins(blame, -PENALTY_COINS);
+  return {
+    ok: true,
+    msg: res.ok
+      ? `"${item.name}" was taken down and ${blame} lost ${COIN} ${PENALTY_COINS}. ${res.msg}`
+      : `"${item.name}" was taken down, but ${blame}'s coins couldn't be changed.`,
+  };
+}
+
 // Put every single account back on the same number of coins.
 export async function adminSetAllCoins(amount) {
   amount = Math.max(0, Math.round(Number(amount) || 0));
   const batch = writeBatch(db);
-  getUsers().forEach((u) => batch.update(_doc("users", u.username.toLowerCase()), { balance: amount }));
+  _cache.users.forEach((u) => batch.update(_doc("users", u.username.toLowerCase()), { balance: amount }));
   await batch.commit();
   return { ok: true, msg: `Everyone now has ${COIN} ${amount}. 🪙` };
 }
@@ -932,10 +1003,10 @@ export function getTxns() {
   return _cache.txns.slice();
 }
 export function boughtBy(username) {
-  return getTxns().filter((t) => t.buyer === username).sort((a, b) => b.date.localeCompare(a.date));
+  return _cache.txns.filter((t) => t.buyer === username).sort((a, b) => b.date.localeCompare(a.date));
 }
 export function soldBy(username) {
-  return getTxns().filter((t) => t.seller === username).sort((a, b) => b.date.localeCompare(a.date));
+  return _cache.txns.filter((t) => t.seller === username).sort((a, b) => b.date.localeCompare(a.date));
 }
 
 /* ---------- helpers ---------- */
