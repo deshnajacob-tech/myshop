@@ -21,6 +21,7 @@ You buy and sell with virtual coins on the site; the actual toys are handed over
 - 🙋 **Ask to buy** — the owner says **Yes!** or **No** before any coins move
 - 🧸 **One toy in, one toy out** — you can only buy as many toys as you've listed yourself
 - 🔄 **Trading Board** — swap a toy straight for another toy, fidget-trading style (no coins)
+- 💬 **A chat box for every friend** — talk about a trade, with a red badge for new messages
 - 😊 **Profile pictures** — add your own photo or drawing; it shows up everywhere you do
 - 🌍 **Countries** — Deshna gives each friend a country, and their flag flies next to their name
 - 🛂 **Trade at home** — you buy and swap with friends in your own country only
@@ -117,6 +118,23 @@ ones:
 Deshna's own admin account can't be paused or removed, so you can never lock yourself out.
 A paused friend is greyed out in the list and counted in the **Paused** box at the top.
 
+### Friends & chat 💬
+The 💬 **Friends** tab lists everyone in the club with their flag, badge and coins. Press
+**Chat 💬** on a friend and a message box opens right inside their row — type, press
+**Send**, and it appears on their screen live, wherever they are. Unread messages show a red
+number on that friend's Chat button and on the 💬 **Friends** tab itself, and the badge
+clears the moment you open the chat. A message you're half-way through typing survives a
+friend's message arriving mid-sentence.
+
+Chat is **not** limited by country (only toy trades are), messages are capped at 300
+characters, and removing a friend deletes their chats along with their account.
+
+> ⚠️ Chat needs one extra collection. **Publish the newest [`firestore.rules`](firestore.rules)
+> in the Firebase console** or the chat boxes will say so — but the rest of the site keeps
+> working either way: `messages` is treated as optional so a missing rule can't take the
+> whole club offline. And like the PINs, messages are not private — anyone with the project
+> id could read them, so keep it to toy talk.
+
 ### Countries 🌍
 Only Deshna picks countries. Each friend in the admin 👥 **Friends** panel has a 🌍 dropdown
 — choose a country and it saves straight away; **No country yet** clears it again. Their
@@ -178,6 +196,7 @@ myshop/
 ├── market.html     ← Marketplace (buy friends' toys)
 ├── trade.html      ← Trading Board (swap toy for toy, no coins)
 ├── mytoys.html     ← List a toy + manage your listings
+├── friends.html    ← Friends list with a chat box for each one
 ├── history.html    ← Your bought & sold history, send coins, your asks
 ├── leaderboard.html ← Who has listed the most toys
 ├── admin.html      ← Admin dashboard (only shows for "deshna")

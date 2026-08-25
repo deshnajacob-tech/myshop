@@ -5,12 +5,13 @@ rules_version = '2';
 // Paste these into: Firebase console → Firestore Database → Rules → Publish.
 //
 // ⚠️  PROTOTYPE RULES. Anyone who finds the project id can read and write
-// this data, including the friends' 4-digit PINs. That is a deliberate
+// this data, including the friends' 4-digit PINs and their chat messages —
+// treat the chat as a noticeboard, not a private letter. That is a deliberate
 // trade-off for a small game between friends with throwaway PINs — do not
 // store anything private here, and never reuse a real password as a PIN.
 //
 // They do two useful things anyway:
-//   • only the six collections this site uses can be touched at all
+//   • only the seven collections this site uses can be touched at all
 //   • they never expire (Firebase's "test mode" rules stop working
 //     after 30 days and would break the site)
 
@@ -23,6 +24,7 @@ service cloud.firestore {
     match /swaps/{docId}     { allow read, write: if true; }
     match /txns/{docId}      { allow read, write: if true; }
     match /transfers/{docId} { allow read, write: if true; }
+    match /messages/{docId}  { allow read, write: if true; }
 
     // Everything else is off limits.
     match /{document=**} { allow read, write: if false; }

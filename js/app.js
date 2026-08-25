@@ -47,6 +47,13 @@ import {
   itemImage,
   describeError,
   buyAllowance,
+  isChatReady,
+  CHAT_OFF_MSG,
+  chatWith,
+  chatTime,
+  sendMessage,
+  markChatRead,
+  unreadFrom,
   LEVELS,
   LEVEL_STEP,
   LEVEL_BONUS,
@@ -141,6 +148,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (page === "market") initMarket();
   if (page === "trade") initTrade();
   if (page === "mytoys") initMyToys();
+  if (page === "friends") initFriends();
   if (page === "history") initHistory();
   if (page === "leaderboard") initLeaderboard();
   if (page === "admin") initAdmin();
@@ -768,6 +776,130 @@ function initMyToys() {
 
   _redraw = drawBoth;
   drawBoth();
+}
+
+/* ============================================================
+   FRIENDS  (one chat box per friend)
+   ============================================================ */
+function initFriends() {
+  if (!requireAuth()) return;
+  const me = currentUser();
+  const wrap = document.getElementById("friendsList");
+  let openWith = null; // whose chat box is open right now
+  let shownFor = null; // whose box was on screen when we last drew
+
+  if (!isChatReady()) {
+    const warn = document.getElementById("chatWarning");
+    warn.style.display = "block";
+    warn.innerHTML = `🔒 ${escapeHtml(CHAT_OFF_MSG)}`;
+  }
+
+  // The messages, then the box to write a new one.
+  function chatBox(friend) {
+    const msgs = chatWith(me.username, friend);
+    const log = msgs.length
+      ? msgs
+          .map(
+            (m) => `
+        <div class="bubble ${m.from === me.username ? "me" : "them"}">
+          ${escapeHtml(m.text)}
+          <span class="bubble-time">${chatTime(m.date)}</span>
+        </div>`
+          )
+          .join("")
+      : `<p class="hint chat-empty">No messages yet. Say hi! 👋</p>`;
+
+    return `
+      <div class="chat-box">
+        <div class="chat-log" id="chatLog">${log}</div>
+        <form class="chat-form" id="chatForm">
+          <input type="text" id="chatText" maxlength="300" autocomplete="off"
+                 placeholder="Write to ${escapeHtml(friend)}…" aria-label="Message for ${escapeHtml(friend)}" />
+          <button type="submit" class="btn small">Send 💬</button>
+        </form>
+      </div>`;
+  }
+
+  function draw() {
+    const friends = getApprovedUsers().filter((u) => u.username !== me.username);
+    if (!friends.length) {
+      setHtml(wrap, `<p class="hint">No other friends yet. Ask someone to register on the home page! 🎈</p>`);
+      return;
+    }
+    if (openWith && !friends.some((u) => u.username === openWith)) openWith = null;
+
+    const html = friends
+      .map((u) => {
+        const open = openWith === u.username;
+        const unread = unreadFrom(me.username, u.username);
+        const lv = levelOf(u.username);
+        return `
+      <div class="mini friend-row${open ? " open" : ""}">
+        <div class="friend-top">
+          ${avatarHtml(u.username)}
+          <div class="info">
+            <b>${escapeHtml(u.username)} ${countryFlag(u.username)}
+              <span class="level-tag">${lv.icon} ${lv.name}</span></b>
+            <small>${coins(u.balance)} · ${lv.listed} toy(s) posted</small>
+          </div>
+          <div class="yn">
+            <button class="btn small ${open ? "ghost " : ""}chat-btn" data-u="${escapeHtml(u.username)}">
+              ${open ? "Close ✖" : "Chat 💬"}${!open && unread ? `<span class="chat-count">${unread}</span>` : ""}
+            </button>
+          </div>
+        </div>
+        ${open ? chatBox(u.username) : ""}
+      </div>`;
+      })
+      .join("");
+
+    // Nothing new? Then the boxes, buttons AND whatever is half-typed in the
+    // message field are all exactly as they should be — leave them alone.
+    const sameChat = shownFor === openWith;
+    const box = document.getElementById("chatText");
+    const draft = box && sameChat ? box.value : "";
+    const wasTyping = box && sameChat && document.activeElement === box;
+    if (!setHtml(wrap, html)) return;
+    shownFor = openWith;
+
+    wrap.querySelectorAll(".chat-btn").forEach((b) =>
+      b.addEventListener("click", () => {
+        openWith = openWith === b.dataset.u ? null : b.dataset.u;
+        const friend = openWith;
+        draw();
+        if (friend) markChatRead(me.username, friend); // clears the red badge
+      })
+    );
+
+    const form = document.getElementById("chatForm");
+    if (form) {
+      const input = document.getElementById("chatText");
+      input.value = draft;
+      if (wasTyping) input.focus();
+
+      // Newest message at the bottom, like a real chat app.
+      const log = document.getElementById("chatLog");
+      if (log) log.scrollTop = log.scrollHeight;
+
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        busy(form.querySelector("button[type=submit]"), async () => {
+          const res = await sendMessage(me.username, openWith, input.value);
+          if (!res.ok) return toast(res.msg);
+          input.value = "";
+          draw();
+          const next = document.getElementById("chatText");
+          if (next) next.focus();
+        });
+      });
+    }
+
+    // Anything unread in the open chat has just been seen.
+    if (openWith && unreadFrom(me.username, openWith)) markChatRead(me.username, openWith);
+  }
+
+  _redraw = draw;
+  draw();
 }
 
 /* ============================================================
