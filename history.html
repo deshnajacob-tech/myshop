@@ -35,6 +35,17 @@
         <div class="stat"><span class="stat-label">Toys traded</span><span class="stat-val" id="statTraded">0</span></div>
       </div>
 
+      <!-- Daily gift -->
+      <div class="panel gift-panel" style="margin-bottom:36px">
+        <h2>🎁 Your daily gift</h2>
+        <p class="hint" id="giftLine">Come back every day for more!</p>
+        <div class="gift-row">
+          <button class="btn gift-btn" id="claimGift">Open today's gift 🎁</button>
+          <div class="gift-streak" id="giftStreak"></div>
+        </div>
+        <div class="voucher-list" id="myVouchers"></div>
+      </div>
+
       <!-- Toys paid for, still to be handed over -->
       <div class="panel request-panel" id="collectPanel" style="display:none;margin-bottom:36px">
         <h2>📦 Toys on their way <span id="collectCount"></span></h2>

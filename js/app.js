@@ -53,6 +53,36 @@ import {
   rememberSearch,
   forgetSearches,
   forYou,
+  dailyGift,
+  claimDailyGift,
+  DAILY_COINS,
+  VOUCHER_EVERY,
+  myVouchers,
+  bestVoucher,
+  RESERVE_HOURS,
+  reservationOf,
+  isHeldByOther,
+  reserveItem,
+  releaseItem,
+  friendsOf,
+  friendRequests,
+  friendState,
+  askToBeFriends,
+  acceptFriend,
+  declineFriend,
+  unfriend,
+  arePostsReady,
+  POSTS_OFF_MSG,
+  POST_MAX_CHARS,
+  POSTS_PER_FRIEND,
+  postsBy,
+  feedFor,
+  likedByMe,
+  addPost,
+  deletePost,
+  toggleLike,
+  gamePlaysLeft,
+  awardGameCoins,
   THEMES,
   applyTheme,
   savedThemeId,
@@ -164,20 +194,37 @@ function toyPage(list, query, page) {
 // the Marketplace and the For You page so they can never disagree.
 function askButton(item, meName, allowance, balance) {
   if (hasPendingRequest(item.id, meName)) return `<button class="btn small ghost" disabled>Asked ⏳</button>`;
+  if (isHeldByOther(item, meName))
+    return `<button class="btn small ghost" disabled title="Someone is holding this toy">🔖 Reserved</button>`;
   if (allowance.left <= 0)
     return `<button class="btn small ghost" disabled title="You can buy one toy for every toy you list">List a toy first 🧸</button>`;
-  if (balance < item.price) return `<button class="btn small ghost" disabled>Need more 🪙</button>`;
+  const voucher = bestVoucher(meName);
+  const price = Math.max(0, item.price - (voucher ? voucher.off : 0));
+  if (balance < price) return `<button class="btn small ghost" disabled>Need more 🪙</button>`;
   return `<button class="btn small ask-btn" data-id="${item.id}">Ask to buy 🙋</button>`;
+}
+
+// 🔖 Reserve / Let it go — one held toy per friend, for a day.
+function reserveButton(item, meName) {
+  const held = reservationOf(item);
+  if (held && held.by === meName)
+    return `<button class="btn small ghost release-btn" data-id="${item.id}"
+              title="You're holding this for ${held.hoursLeft} more hours">🔖 Holding · let go</button>`;
+  if (held) return "";
+  return `<button class="btn small ghost reserve-btn" data-id="${item.id}"
+            title="Hold this toy for ${RESERVE_HOURS} hours">🔖 Reserve</button>`;
 }
 
 // One toy card. `ribbon` is the little "because you like Cars" line.
 function toyCard(item, buttonHtml, ribbon) {
+  const held = reservationOf(item);
   return `
       <article class="card">
         <div class="card-img">
           <img src="${item.image}" alt="${escapeHtml(item.name)}" loading="lazy" decoding="async" onerror="this.src='images/placeholder.svg'" />
           <div class="card-badges">
             <span class="badge ${item.condition === "new" ? "new" : "handmade"}">${item.condition}</span>
+            ${held ? `<span class="badge held">🔖 ${escapeHtml(held.by)} · ${held.hoursLeft}h</span>` : ""}
           </div>
         </div>
         <div class="card-body">
@@ -266,6 +313,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (page === "home") initHome();
   if (page === "market") initMarket();
   if (page === "foryou") initForYou();
+  if (page === "game") initGame();
+  if (page === "posts") initPosts();
   if (page === "trade") initTrade();
   if (page === "mytoys") initMyToys();
   if (page === "friends") initFriends();
@@ -487,11 +536,30 @@ function initMarket() {
     }
 
     const html = info.shown
-      .map((i) => toyCard(i, askButton(i, me.username, allowance, fresh.balance)))
+      .map((i) =>
+        toyCard(i, askButton(i, me.username, allowance, fresh.balance) + reserveButton(i, me.username))
+      )
       .join("");
 
     // Same toys as last time? Then the buttons below are already wired up.
     if (!setHtml(grid, html)) return;
+
+    grid.querySelectorAll(".reserve-btn").forEach((btn) =>
+      btn.addEventListener("click", () =>
+        busy(btn, async () => {
+          toast((await reserveItem(btn.dataset.id, me.username)).msg);
+          draw();
+        })
+      )
+    );
+    grid.querySelectorAll(".release-btn").forEach((btn) =>
+      btn.addEventListener("click", () =>
+        busy(btn, async () => {
+          toast((await releaseItem(btn.dataset.id, me.username)).msg);
+          draw();
+        })
+      )
+    );
 
     grid.querySelectorAll(".ask-btn").forEach((btn) => {
       btn.addEventListener("click", () =>
@@ -933,6 +1001,275 @@ function initMyToys() {
 }
 
 /* ============================================================
+   MY POSTS  (things about your life, for your friends)
+   ============================================================ */
+function initPosts() {
+  if (!requireAuth()) return;
+  const me = currentUser();
+  let photo = "";
+
+  if (!arePostsReady()) {
+    const warn = document.getElementById("postsWarning");
+    warn.style.display = "block";
+    warn.innerHTML = `🔒 ${escapeHtml(POSTS_OFF_MSG)}`;
+  }
+
+  /* --- writing one --- */
+  const textEl = document.getElementById("postText");
+  const countEl = document.getElementById("postCount");
+  const preview = document.getElementById("postPreview");
+
+  textEl.addEventListener("input", () => {
+    const left = POST_MAX_CHARS - textEl.value.length;
+    countEl.textContent = `${left} letter${left === 1 ? "" : "s"} left`;
+  });
+
+  document.getElementById("postImage").addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    resizeImage(file, 420, (dataUrl) => {
+      photo = dataUrl;
+      preview.style.display = "block";
+      preview.innerHTML = `<img src="${dataUrl}" alt="Your photo" />
+        <button type="button" class="btn small ghost" id="dropPhoto">Remove photo</button>`;
+      document.getElementById("dropPhoto").addEventListener("click", () => {
+        photo = "";
+        preview.style.display = "none";
+        preview.innerHTML = "";
+        document.getElementById("postImage").value = "";
+      });
+    });
+  });
+
+  document.getElementById("postForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    busy(e.target.querySelector("button[type=submit]"), async () => {
+      const res = await addPost(me.username, textEl.value, photo);
+      toast(res.msg);
+      if (!res.ok) return;
+      textEl.value = "";
+      photo = "";
+      preview.style.display = "none";
+      preview.innerHTML = "";
+      document.getElementById("postImage").value = "";
+      countEl.textContent = `${POST_MAX_CHARS} letters left`;
+      draw();
+    });
+  });
+
+  /* --- showing them --- */
+  function postCard(p) {
+    const mine = p.author === me.username;
+    const likes = Array.isArray(p.likes) ? p.likes : [];
+    const iLike = likedByMe(p, me.username);
+    return `
+      <article class="post">
+        <div class="post-head">
+          ${avatarHtml(p.author)}
+          <div class="info">
+            <b>${presenceDot(p.author)}${escapeHtml(p.author)} ${countryFlag(p.author)}</b>
+            <small>${timeAgo(p.date)} · ${chatTime(p.date)}</small>
+          </div>
+          ${
+            mine || isAdmin(me)
+              ? `<button class="del-btn post-del" data-id="${p.id}">Delete</button>`
+              : ""
+          }
+        </div>
+        <p class="post-text">${escapeHtml(p.text)}</p>
+        ${p.image ? `<img class="post-photo" src="${p.image}" alt="" loading="lazy" decoding="async" />` : ""}
+        <div class="post-foot">
+          <button class="like-btn${iLike ? " liked" : ""}" data-id="${p.id}"
+                  aria-pressed="${iLike}" title="${iLike ? "Take back your like" : "Like this"}">
+            ${iLike ? "❤️" : "🤍"} ${likes.length}
+          </button>
+          ${likes.length ? `<small class="post-likers">${escapeHtml(likes.slice(0, 3).join(", "))}${likes.length > 3 ? ` +${likes.length - 3}` : ""}</small>` : ""}
+        </div>
+      </article>`;
+  }
+
+  function wirePosts(wrap) {
+    wrap.querySelectorAll(".like-btn").forEach((b) =>
+      b.addEventListener("click", () =>
+        busy(b, async () => {
+          const res = await toggleLike(b.dataset.id, me.username);
+          if (!res.ok) toast(res.msg);
+          draw();
+        })
+      )
+    );
+    wrap.querySelectorAll(".post-del").forEach((b) =>
+      b.addEventListener("click", () =>
+        busy(b, async () => {
+          if (!confirm("Delete this post for good?")) return;
+          toast((await deletePost(b.dataset.id, me.username)).msg);
+          draw();
+        })
+      )
+    );
+  }
+
+  function draw() {
+    const mine = postsBy(me.username);
+    const pals = friendsOf(me.username);
+    const theirs = feedFor(me.username).filter((p) => p.author !== me.username);
+
+    document.getElementById("mineNote").textContent = mine.length
+      ? `Your newest ${POSTS_PER_FRIEND} posts are kept — ${mine.length} so far.`
+      : "Nothing yet — write your first post above!";
+
+    const myWrap = document.getElementById("myPosts");
+    if (setHtml(myWrap, mine.length ? mine.map(postCard).join("") : `<div class="empty">No posts yet 📝</div>`))
+      wirePosts(myWrap);
+
+    document.getElementById("feedNote").innerHTML = pals.length
+      ? `Posts from your ${pals.length} friend${pals.length === 1 ? "" : "s"}.`
+      : `You haven't added any friends yet — <a href="friends.html" style="color:var(--rose)">find some on the Friends page</a>!`;
+
+    const feedWrap = document.getElementById("friendPosts");
+    if (
+      setHtml(
+        feedWrap,
+        theirs.length
+          ? theirs.map(postCard).join("")
+          : `<div class="empty">${
+              pals.length ? "Your friends haven't posted yet 💭" : "Add a friend to see their posts 💜"
+            }</div>`
+      )
+    )
+      wirePosts(feedWrap);
+  }
+
+  _redraw = draw;
+  draw();
+}
+
+/* ============================================================
+   TOY MATCH  (find the pairs, win coins — 3 paying games a day)
+   ============================================================ */
+function initGame() {
+  if (!requireAuth()) return;
+  const me = currentUser();
+
+  const TOYS = ["🧸", "🚗", "🪀", "🎲", "🧩", "🎨", "🪁", "🚀", "🎸", "⚽"];
+  const PAIRS = 6;
+  const board = document.getElementById("gBoard");
+  const message = document.getElementById("gMessage");
+
+  let deck = []; // [{ toy, done }]
+  let up = []; // the one or two cards facing up
+  let moves = 0;
+  let found = 0;
+  let peeking = false; // true while a wrong pair is on show
+  let over = false;
+
+  // How many coins a win is worth — quick games pay more.
+  function prize(turns) {
+    if (turns <= 10) return 6;
+    if (turns <= 14) return 5;
+    if (turns <= 20) return 4;
+    return 2;
+  }
+
+  function shuffle(list) {
+    for (let i = list.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [list[i], list[j]] = [list[j], list[i]];
+    }
+    return list;
+  }
+
+  function newGame() {
+    const picked = shuffle(TOYS.slice()).slice(0, PAIRS);
+    deck = shuffle(picked.concat(picked).map((toy) => ({ toy, done: false })));
+    up = [];
+    moves = 0;
+    found = 0;
+    peeking = false;
+    over = false;
+
+    board.innerHTML = deck
+      .map(
+        (card, i) => `
+      <button type="button" class="memo" data-i="${i}" aria-label="Card ${i + 1}">
+        <span class="memo-inner">
+          <span class="memo-face back">?</span>
+          <span class="memo-face front">${card.toy}</span>
+        </span>
+      </button>`
+      )
+      .join("");
+    board.querySelectorAll(".memo").forEach((b) => b.addEventListener("click", () => flip(Number(b.dataset.i))));
+
+    say("Press a card to start! 🧸");
+    tally();
+  }
+
+  function cardEl(i) {
+    return board.querySelector(`.memo[data-i="${i}"]`);
+  }
+  function say(html) {
+    message.innerHTML = html;
+  }
+  function tally() {
+    document.getElementById("gMoves").textContent = moves;
+    document.getElementById("gPairs").textContent = `${found} / ${PAIRS}`;
+    document.getElementById("gLeft").textContent = gamePlaysLeft(me.username);
+  }
+
+  function flip(i) {
+    if (peeking || over || deck[i].done || up.includes(i)) return;
+
+    up.push(i);
+    cardEl(i).classList.add("up");
+    if (up.length < 2) return;
+
+    moves++;
+    const [a, b] = up;
+    if (deck[a].toy === deck[b].toy) {
+      deck[a].done = deck[b].done = true;
+      found++;
+      up = [];
+      [a, b].forEach((n) => cardEl(n).classList.add("done"));
+      tally();
+      if (found === PAIRS) win();
+      else say("Match! 🎉 Keep going.");
+      return;
+    }
+
+    // Not a pair — let them look, then turn both back over.
+    peeking = true;
+    say("Not a pair — have a good look! 👀");
+    tally();
+    setTimeout(() => {
+      [a, b].forEach((n) => cardEl(n).classList.remove("up"));
+      up = [];
+      peeking = false;
+    }, 850);
+  }
+
+  async function win() {
+    over = true;
+    const coinsWon = prize(moves);
+    say(`🎉 <b>All found in ${moves} turns!</b> Counting your coins…`);
+
+    const res = await awardGameCoins(me.username, coinsWon);
+    say(
+      res.ok
+        ? `🎉 <b>${escapeHtml(res.msg)}</b> ${res.left ? `You have ${res.left} paying game${res.left === 1 ? "" : "s"} left today.` : "That was your last paying game today — play again just for fun! 🌙"}`
+        : `You found them all in ${moves} turns! ${escapeHtml(res.msg)}`
+    );
+    if (res.ok) toast(res.msg);
+    renderNav("game");
+    tally();
+  }
+
+  document.getElementById("gNew").addEventListener("click", newGame);
+  _redraw = tally; // someone else changing something shouldn't reshuffle the board
+  newGame();
+}
+
+/* ============================================================
    FOR YOU  (picked from what you like + what you search for)
    ============================================================ */
 function initForYou() {
@@ -1103,7 +1440,71 @@ function initFriends() {
       </div>`;
   }
 
+  // People who have asked to be my friend
+  function drawRequests() {
+    const panel = document.getElementById("friendReqPanel");
+    const wants = friendRequests(me.username);
+    panel.style.display = wants.length ? "block" : "none";
+    document.getElementById("friendReqCount").textContent = wants.length ? `(${wants.length})` : "";
+    if (!wants.length) return;
+
+    const list = document.getElementById("friendReqList");
+    const changed = setHtml(
+      list,
+      wants
+        .map(
+          (name) => `
+      <div class="mini">
+        ${avatarHtml(name)}
+        <div class="info">
+          <b>${escapeHtml(name)} ${countryFlag(name)}</b>
+          <small>${presenceDot(name)} ${escapeHtml(lastSeenText(name))}</small>
+        </div>
+        <div class="yn">
+          <button class="icon-btn yes fr-yes" data-u="${escapeHtml(name)}" title="Yes, be friends!" aria-label="Yes, be friends">✔</button>
+          <button class="icon-btn no fr-no" data-u="${escapeHtml(name)}" title="No thanks" aria-label="No thanks">✖</button>
+        </div>
+      </div>`
+        )
+        .join("")
+    );
+    if (!changed) return;
+
+    list.querySelectorAll(".fr-yes").forEach((b) =>
+      b.addEventListener("click", () =>
+        busy(b, async () => {
+          toast((await acceptFriend(me.username, b.dataset.u)).msg);
+          draw();
+        })
+      )
+    );
+    list.querySelectorAll(".fr-no").forEach((b) =>
+      b.addEventListener("click", () =>
+        busy(b, async () => {
+          toast((await declineFriend(me.username, b.dataset.u)).msg);
+          draw();
+        })
+      )
+    );
+  }
+
+  // The button that turns a stranger into a friend.
+  function friendButton(name) {
+    switch (friendState(me.username, name)) {
+      case "friends":
+        return `<button class="btn small ghost unfriend-btn" data-u="${escapeHtml(name)}" title="You're friends">💜 Friends</button>`;
+      case "sent":
+        return `<button class="btn small ghost" disabled>Asked ⏳</button>`;
+      case "waiting":
+        return `<button class="btn small add-btn" data-u="${escapeHtml(name)}">✔ Say yes!</button>`;
+      default:
+        return `<button class="btn small add-btn" data-u="${escapeHtml(name)}">💜 Add</button>`;
+    }
+  }
+
   function draw() {
+    drawRequests();
+
     const friends = getApprovedUsers().filter((u) => u.username !== me.username);
     if (!friends.length) {
       setHtml(wrap, `<p class="hint">No other friends yet. Ask someone to register on the home page! 🎈</p>`);
@@ -1126,6 +1527,7 @@ function initFriends() {
             <small>${presenceDot(u.username)} ${escapeHtml(lastSeenText(u.username))} · ${coins(u.balance)} · ${lv.listed} toy(s) posted</small>
           </div>
           <div class="yn">
+            ${friendButton(u.username)}
             <button class="btn small ${open ? "ghost " : ""}chat-btn" data-u="${escapeHtml(u.username)}">
               ${open ? "Close ✖" : "Chat 💬"}${!open && unread ? `<span class="chat-count">${unread}</span>` : ""}
             </button>
@@ -1152,6 +1554,25 @@ function initFriends() {
         draw();
         if (friend) markChatRead(me.username, friend); // clears the red badge
       })
+    );
+
+    wrap.querySelectorAll(".add-btn").forEach((b) =>
+      b.addEventListener("click", () =>
+        busy(b, async () => {
+          toast((await askToBeFriends(me.username, b.dataset.u)).msg);
+          draw();
+        })
+      )
+    );
+    wrap.querySelectorAll(".unfriend-btn").forEach((b) =>
+      b.addEventListener("click", () =>
+        busy(b, async () => {
+          if (!confirm(`Stop being friends with ${b.dataset.u}?\n\nYou won't see each other's posts any more.`))
+            return;
+          toast((await unfriend(me.username, b.dataset.u)).msg);
+          draw();
+        })
+      )
     );
 
     const form = document.getElementById("chatForm");
@@ -1309,6 +1730,43 @@ function initHistory() {
     setHtml(wrap, html);
   }
 
+  // ----- the daily gift -----
+  const giftBtn = document.getElementById("claimGift");
+  giftBtn.addEventListener("click", () =>
+    busy(giftBtn, async () => {
+      const res = await claimDailyGift(me.username);
+      toast(res.msg);
+      renderNav("history");
+      drawGift();
+    })
+  );
+
+  function drawGift() {
+    const gift = dailyGift(me.username);
+    const vouchers = myVouchers(me.username);
+
+    giftBtn.disabled = gift.claimed;
+    giftBtn.textContent = gift.claimed ? "Opened — see you tomorrow 🌙" : "Open today's gift 🎁";
+    // What tomorrow holds if they keep the streak going.
+    const nextDay = gift.streak + 1;
+    const nextCoins = DAILY_COINS[Math.min(nextDay - 1, DAILY_COINS.length - 1)];
+    const nextVoucher = nextDay % VOUCHER_EVERY === 0;
+    document.getElementById("giftLine").innerHTML = gift.claimed
+      ? `Tomorrow: <b>${coins(nextCoins)}</b>${nextVoucher ? " and another <b>🎟️ voucher</b>" : ""} — don't break your streak!`
+      : `Waiting for you: <b>${coins(gift.coins)}</b>${gift.voucher ? ` and a <b>🎟️ ${gift.voucher}-coin voucher</b>` : ""}.`;
+    document.getElementById("giftStreak").innerHTML = `🔥 <b>Day ${gift.streak}</b> in a row`;
+
+    setHtml(
+      document.getElementById("myVouchers"),
+      vouchers.length
+        ? `<p class="hint" style="margin:14px 0 8px">Your vouchers come off your next toy automatically:</p>` +
+            vouchers
+              .map((v) => `<span class="voucher">🎟️ ${v.off} coins off</span>`)
+              .join("")
+        : ""
+    );
+  }
+
   // ----- colour system -----
   function drawThemes() {
     const mine = themeOf(me.username);
@@ -1397,6 +1855,7 @@ function initHistory() {
   }
 
   function drawEverything() {
+    drawGift();
     drawThemes();
     drawCollect();
     drawAvatar();

@@ -13,6 +13,11 @@ You buy and sell with virtual coins on the site; the actual toys are handed over
 - 👥 **Register** with a name + a 4-digit PIN — then wait for Deshna to say yes
 - ✅ **Admin approves sign-ups** — new friends can't log in until Deshna accepts them
 - 🪙 Everyone starts with **50 virtual coins**
+- 🎮 **Toy Match** — a memory game that pays coins, three paying games a day
+- 🎁 **Daily gift** — coins every day, with a streak, plus 🎟️ vouchers off your next toy
+- 📣 **My Posts** — tell your friends about your day; they can ❤️ it
+- 💜 **Real friendships** — ask someone to be your friend; posts are for friends only
+- 🔖 **Reserve a toy** — hold one toy for 24 hours so nobody else takes it
 - 📸 **List toys** (new / used) with a photo, price and description — **🪙 1 coin** for every
   toy you post
 - 🏅 **Levels** — a new badge every 10 toys posted (Bronze → Silver → Gold → …), each one
@@ -153,6 +158,67 @@ while that note is under 3 minutes old, so a green dot appears next to them on t
 message — the note simply goes stale and the dot turns grey on everyone's screen within a
 minute. Logging out marks you offline immediately.
 
+### Friends, for real 💜
+Everyone in the club can trade and chat, but **friendship** is something you choose. On the
+💬 **Friends** page every friend has a **💜 Add** button:
+
+- They see *"🙋 Want to be your friend"* at the top of their own Friends page and answer with
+  the green **✔** or red **✖**.
+- Once you're friends the button becomes **💜 Friends** — press it again to unfriend (it
+  asks first). Both sides always change together, in one write.
+- Being friends is what lets you see each other's **posts**.
+
+Friendships are two little lists (`friends` and `requests`) on each account, so they needed
+no new collection and no new database rule.
+
+### My Posts 📣
+The 📣 **Posts** tab is for life outside toys — what you did today, a joke, a drawing. Write
+up to 300 letters, add a photo if you like, and press **Post it**. Underneath you'll find
+**Your posts** and then **From your friends**. Anyone can press 🤍 to like a post (it turns
+❤️), and you can delete your own at any time — Deshna can delete any of them.
+
+Only your **friends** see your posts, so adding friends is what fills the page up. Your
+newest **20** posts are kept; older ones drop off, which stops the database growing forever.
+
+> Posts need one more collection, so **publish the newest
+> [`firestore.rules`](firestore.rules)** — same paste as for chat. If you haven't, the page
+> says so and everything else keeps working.
+
+### Daily gift 🎁
+On **My Stuff** there's a present waiting once a day. Coins grow with your streak — 🪙 2 on
+day 1 up to 🪙 6 from day 7 — and **every third day** you also get a 🎟️ **voucher**: coins
+off your next toy (5, or 10 once you're on a 6-day streak).
+
+Vouchers are used **automatically**: the moment you press *Ask to buy*, your biggest voucher
+comes off the price, and the seller sees the reduced price. If they say no, the voucher goes
+straight back in your pocket. You can hold five at a time.
+
+Claiming and paying happen in the same write, so a second tab can't collect twice, and a
+missed day resets the streak to day 1.
+
+### Reserve a toy 🔖
+See something you want but need to think (or save up)? Press **🔖 Reserve** on any toy in the
+Marketplace and it's yours to decide about for **24 hours**: nobody else can ask to buy it or
+offer a swap for it, and the card shows *"🔖 Aria · 22h"* to everyone. You can hold **one toy
+at a time**, press **let go** to release it early, and the owner can free their own toy too.
+Nothing needs cleaning up — a hold simply stops counting when its time runs out.
+
+### Toy Match 🎮
+Short of coins? The 🎮 **Game** tab is a memory game: twelve cards face down, six pairs of
+toys, find them all. Fewer turns pay more —
+
+| Turns | 10 or fewer | up to 14 | up to 20 | more |
+|-------|-------------|----------|----------|------|
+| Coins | 🪙 6 | 🪙 5 | 🪙 4 | 🪙 2 |
+
+**Three paying games a day.** After that you can keep playing for fun, but the coins stop
+until tomorrow — it's a treat, not a coin machine. The count and the payout happen in the
+*same* database write, so refreshing the page or opening a second tab can't get you a fourth
+payday, and the amount is capped in `awardGameCoins` rather than trusted from the browser.
+
+Change `GAME_MAX_PLAYS` or `GAME_MAX_COINS` in [`js/store.js`](js/store.js) to make it more
+or less generous.
+
 ### Your own For You page ✨
 The ✨ **For You** tab is different for every friend. It's built from two things:
 
@@ -286,6 +352,8 @@ myshop/
 ├── index.html      ← Home + login / register
 ├── market.html     ← Marketplace (buy friends' toys)
 ├── foryou.html     ← Your own page: picked toys, likes, past searches
+├── game.html       ← Toy Match: a memory game that pays coins
+├── posts.html      ← My Posts: your life, for your friends
 ├── trade.html      ← Trading Board (swap toy for toy, no coins)
 ├── mytoys.html     ← List a toy + manage your listings
 ├── friends.html    ← Friends list with a chat box for each one

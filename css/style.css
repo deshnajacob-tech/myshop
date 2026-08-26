@@ -616,6 +616,89 @@ a { color: inherit; text-decoration: none; }
 }
 .podium-card .level-tag { margin: 2px 0 4px; }
 
+/* ===== Daily gift & vouchers ===== */
+.gift-panel { background: linear-gradient(160deg, var(--blush), #fff); }
+.gift-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.gift-btn { font-size: 17px; }
+.gift-btn:disabled { filter: grayscale(.4); }
+.gift-streak {
+  background: #fff; border: 2px dashed var(--rose-soft); border-radius: 999px;
+  padding: 8px 18px; font-weight: 700; color: var(--plum);
+}
+.voucher-list { display: flex; flex-wrap: wrap; gap: 10px; }
+.voucher {
+  display: inline-block; background: linear-gradient(135deg, var(--butter), #fff3cf);
+  border: 2px dashed var(--gold); border-radius: 14px;
+  padding: 7px 16px; font-weight: 800; color: #7a5a12;
+  font-family: var(--font-head);
+}
+.badge.held { background: linear-gradient(135deg, #6f86d6, #48c6ef); }
+
+/* ===== Posts ===== */
+.container.narrow { width: min(760px, 92%); }
+.post-compose { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.post-preview { margin-top: 14px; display: grid; gap: 10px; justify-items: start; }
+.post-preview img { max-height: 220px; border-radius: 20px; border: 3px solid #fff; box-shadow: var(--shadow); }
+.post-list { display: grid; gap: 18px; }
+.post {
+  background: #fff; border-radius: var(--radius); padding: 20px;
+  border: 2px solid #fff; outline: 2px solid var(--line); outline-offset: -2px;
+  box-shadow: var(--shadow); animation: pop .3s ease both;
+}
+.post-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.post-head .info { flex: 1; min-width: 0; }
+.post-head .info b { font-family: var(--font-head); font-size: 17px; color: var(--plum); }
+.post-head .info small { display: block; color: var(--muted); font-weight: 600; font-size: 12.5px; }
+.post-text { font-size: 16px; font-weight: 600; line-height: 1.6; overflow-wrap: anywhere; white-space: pre-wrap; }
+.post-photo {
+  display: block; width: 100%; max-height: 380px; object-fit: cover;
+  margin-top: 14px; border-radius: 20px; border: 2px solid var(--line);
+}
+.post-foot { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
+.like-btn {
+  cursor: pointer; background: var(--blush); border: 2px solid var(--line);
+  border-radius: 999px; padding: 7px 16px; font-size: 15px; font-weight: 700;
+  font-family: var(--font-body); color: var(--ink);
+  transition: transform .15s, border-color .2s;
+}
+.like-btn:hover { transform: translateY(-2px); border-color: var(--rose-soft); }
+.like-btn.liked { border-color: var(--rose); color: var(--rose); }
+.post-likers { color: var(--muted); font-weight: 600; overflow-wrap: anywhere; }
+
+/* ===== Toy Match game ===== */
+.memo-board {
+  display: grid; gap: 14px; max-width: 560px; margin: 26px auto 0;
+  grid-template-columns: repeat(4, 1fr);
+}
+.memo {
+  aspect-ratio: 1 / 1; border: none; background: none; padding: 0;
+  cursor: pointer; perspective: 700px;
+}
+.memo-inner {
+  position: relative; display: block; width: 100%; height: 100%;
+  transition: transform .4s cubic-bezier(.34, 1.4, .64, 1);
+  transform-style: preserve-3d;
+}
+.memo.up .memo-inner, .memo.done .memo-inner { transform: rotateY(180deg); }
+.memo-face {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  border-radius: 20px; backface-visibility: hidden;
+  font-size: clamp(28px, 8vw, 42px);
+  border: 3px solid #fff; box-shadow: var(--shadow);
+}
+.memo-face.back {
+  background: linear-gradient(135deg, var(--rose), var(--accent2));
+  color: #fff; font-family: var(--font-head); font-weight: 800;
+}
+.memo-face.front { background: #fff; transform: rotateY(180deg); outline: 2px solid var(--line); outline-offset: -3px; }
+.memo:hover:not(.done) .memo-face.back { transform: scale(1.04); }
+.memo.done { cursor: default; }
+.memo.done .memo-face.front {
+  background: var(--blush); outline-color: var(--rose-soft);
+  animation: pop .35s ease both;
+}
+@media (max-width: 520px) { .memo-board { gap: 10px; } }
+
 /* ===== Colour system picker ===== */
 .theme-family {
   font-size: 16px; color: var(--muted); margin: 4px 0 12px;

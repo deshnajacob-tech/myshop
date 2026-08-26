@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Toy Match — Friends Trading Centre</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body data-page="game">
+  <header class="site-header">
+    <div class="container nav">
+      <a class="brand" href="index.html">
+        <span class="logo">F</span>
+        <span class="brand-text"><b>Friends Trading Centre</b><span>SWAP · TRADE · SMILE</span></span>
+      </a>
+      <nav class="nav-links" id="navLinks"></nav>
+      <div class="nav-auth" id="navAuth"></div>
+    </div>
+  </header>
+
+  <section class="section">
+    <div class="container">
+      <div class="section-head">
+        <h2>Toy Match 🎮</h2>
+        <p>Find both of every toy to win coins. The fewer turns you take, the more you win!</p>
+      </div>
+
+      <div class="stats">
+        <div class="stat"><span class="stat-label">Turns</span><span class="stat-val" id="gMoves">0</span></div>
+        <div class="stat"><span class="stat-label">Pairs found</span><span class="stat-val" id="gPairs">0 / 6</span></div>
+        <div class="stat"><span class="stat-label">Games left today</span><span class="stat-val" id="gLeft">3</span></div>
+        <div class="stat"><span class="stat-label">Best win</span><span class="stat-val">🪙 6</span></div>
+      </div>
+
+      <div class="you-are" id="gMessage">Press a card to start! 🧸</div>
+
+      <div class="memo-board" id="gBoard"></div>
+
+      <div class="form-actions" style="justify-content:center;margin-top:26px">
+        <button class="btn" id="gNew">New game 🔄</button>
+        <a class="btn ghost" href="market.html">Spend my coins 🛒</a>
+      </div>
+
+      <div class="note" style="max-width:640px;margin:26px auto 0;text-align:center">
+        🪙 <b>How many coins?</b> 6 for 10 turns or fewer, 5 up to 14, 4 up to 20, then 2.
+        You can win coins from <b>3 games a day</b> — after that you can still play for fun.
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container footer-bottom">
+      © <span id="year"></span> Friends Trading Centre · Virtual coins only · Made with 💜 by Deshna
+    </div>
+  </footer>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
