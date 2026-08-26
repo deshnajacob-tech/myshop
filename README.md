@@ -26,6 +26,7 @@ You buy and sell with virtual coins on the site; the actual toys are handed over
 - 📦 **Hand-over check** — the buyer confirms the toy really arrived, or gets their coins back
 - 🟢 **Online now** — a green dot shows which friends have the site open
 - 💬 **A chat box for every friend** — talk about a trade, with a red badge for new messages
+- 🎨 **Your own colours** — 10 palettes (5 pastel, 5 standard); the whole site wears yours
 - 😊 **Profile pictures** — add your own photo or drawing; it shows up everywhere you do
 - 🌍 **Countries** — Deshna gives each friend a country, and their flag flies next to their name
 - 🛂 **Trade at home** — you buy and swap with friends in your own country only
@@ -235,14 +236,32 @@ the podium, the admin list and next to your name in the top bar. **Remove** puts
 to the letter blob. Nothing extra to set up — the picture rides along in the same `users`
 record as your coins.
 
+### Pick your colours 🎨
+On **My Stuff** there's a **🎨 My Colours** panel with ten palettes in two families:
+
+| 🍬 Pastel | 🌈 Standard |
+|-----------|-------------|
+| Bubblegum · Mint · Sky · Lavender · Peach | Cherry Red · Ocean Blue · Forest Green · Grape · Sunshine |
+
+Tap one and **the whole site changes instantly** — buttons, cards, background glows,
+confetti dots, the blush on the avatars, even the scrollbar. The choice is saved on your
+account, so it follows you to any computer, *and* in the browser, so the right colours are
+on screen the moment a page opens rather than a second later. Only you see your colours.
+
+It works because every themeable colour is a CSS variable at the top of
+[`css/style.css`](css/style.css) (`--rose`, `--accent2`, `--btn-edge`, `--blush`, `--glow1`…)
+and a theme is just a set of values for them, defined in `THEMES` in
+[`js/store.js`](js/store.js). Add a row there and it appears in the picker — no CSS needed.
+Colours that carry *meaning* stay put in every theme: gold medals, the green online dot, the
+green ✔ and red ✖ on the Trading Board, and the warning yellows.
+
 ### Kawaii look 🌸
 The theme is soft and cute on purpose: pastel pinks, lavender and mint, rounded **Baloo 2**
 and **Quicksand** lettering, confetti dots in the background, squishy blob avatars with
 blushing cheeks, and buttons shaped like stickers that press down when you click them.
 Cards tilt when you hover, badges bob, and the swap arrow wiggles. All of it lives in
-[`css/style.css`](css/style.css) — the colours are CSS variables at the very top
-(`--rose`, `--lav`, `--mint`, `--blush`…), so the whole site re-skins by editing those
-few lines.
+[`css/style.css`](css/style.css), and the colours come from the palette each friend picks
+(see **Pick your colours** above) — Bubblegum is the one everybody starts with.
 
 ### Big kid-friendly buttons
 The whole site uses simple words, chunky buttons and emojis so younger kids can use it easily.

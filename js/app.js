@@ -53,6 +53,11 @@ import {
   rememberSearch,
   forgetSearches,
   forYou,
+  THEMES,
+  applyTheme,
+  savedThemeId,
+  themeOf,
+  setTheme,
   startPresence,
   lastSeenText,
   presenceDot,
@@ -112,6 +117,10 @@ function setHtml(el, html) {
   el.innerHTML = html;
   return true;
 }
+
+// Paint this browser's last-known colours on immediately, so the page never
+// flashes the wrong palette while the cloud is still answering.
+applyTheme(savedThemeId());
 
 // Each page sets this to its own draw function so live updates from other
 // computers can refresh what's on screen.
@@ -237,6 +246,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
   hideOverlay();
+
+  // The account is the truth: a friend who changed their colours on another
+  // computer gets them here too.
+  const signedIn = currentUser();
+  if (signedIn) applyTheme(themeOf(signedIn.username));
 
   // Tell everyone I'm here, and keep saying it while the tab is open.
   startPresence();
@@ -1295,6 +1309,40 @@ function initHistory() {
     setHtml(wrap, html);
   }
 
+  // ----- colour system -----
+  function drawThemes() {
+    const mine = themeOf(me.username);
+    ["pastel", "standard"].forEach((family) => {
+      const wrap = document.getElementById(family === "pastel" ? "themesPastel" : "themesStandard");
+      const changed = setHtml(
+        wrap,
+        THEMES.filter((t) => t.family === family)
+          .map(
+            (t) => `
+        <button type="button" class="theme-card${t.id === mine ? " picked" : ""}" data-theme="${t.id}"
+                aria-pressed="${t.id === mine}" title="${escapeHtml(t.name)}">
+          <span class="theme-dots">${t.swatch
+            .map((c) => `<span class="theme-dot" style="background:${c}"></span>`)
+            .join("")}</span>
+          <span class="theme-name">${escapeHtml(t.name)}</span>
+        </button>`
+          )
+          .join("")
+      );
+      if (!changed) return;
+
+      wrap.querySelectorAll(".theme-card").forEach((card) =>
+        card.addEventListener("click", () =>
+          busy(card, async () => {
+            const res = await setTheme(me.username, card.dataset.theme);
+            toast(res.msg);
+            drawThemes();
+          })
+        )
+      );
+    });
+  }
+
   // Toys I've paid for that haven't been handed over yet.
   function drawCollect() {
     const panel = document.getElementById("collectPanel");
@@ -1349,6 +1397,7 @@ function initHistory() {
   }
 
   function drawEverything() {
+    drawThemes();
     drawCollect();
     drawAvatar();
     fillFriends();
