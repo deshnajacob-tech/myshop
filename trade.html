@@ -6,7 +6,7 @@
   <title>Trading Board — Friends Trading Centre</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body data-page="trade">
@@ -52,7 +52,13 @@
         <p>Pick which of your toys to offer, then send the swap.</p>
       </div>
       <div class="you-are" id="tradeCountry" style="display:none;margin:0 auto 22px"></div>
+      <div class="list-tools">
+        <span class="search-ico">🔍</span>
+        <input type="search" id="tradeSearch" class="search-input" autocomplete="off"
+               placeholder="Search a toy, a friend or a category…" aria-label="Search toys to swap for" />
+      </div>
       <div class="grid" id="tradeGrid"></div>
+      <div class="pager" id="tradePager"></div>
 
       <!-- Done swaps -->
       <div class="panel" id="historyPanel" style="display:none;margin-top:36px">

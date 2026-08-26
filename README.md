@@ -18,9 +18,12 @@ You buy and sell with virtual coins on the site; the actual toys are handed over
 - 🏅 **Levels** — a new badge every 10 toys posted (Bronze → Silver → Gold → …), each one
   worth a **🪙 5** bonus
 - 🛒 **Marketplace** — logged-in friends see everyone *else's* available toys
+- 🔍 **Search + pages** — find a toy by name, friend or category; 10 toys a page, newest first
 - 🙋 **Ask to buy** — the owner says **Yes!** or **No** before any coins move
 - 🧸 **One toy in, one toy out** — you can only buy as many toys as you've listed yourself
 - 🔄 **Trading Board** — swap a toy straight for another toy, fidget-trading style (no coins)
+- 📦 **Hand-over check** — the buyer confirms the toy really arrived, or gets their coins back
+- 🟢 **Online now** — a green dot shows which friends have the site open
 - 💬 **A chat box for every friend** — talk about a trade, with a red badge for new messages
 - 😊 **Profile pictures** — add your own photo or drawing; it shows up everywhere you do
 - 🌍 **Countries** — Deshna gives each friend a country, and their flag flies next to their name
@@ -40,8 +43,10 @@ You buy and sell with virtual coins on the site; the actual toys are handed over
 
 ### The Trading Board 🔄
 Coins are one way to trade — the **Trading Board** is the other. Pick a friend's toy,
-choose which of your own toys to offer, and press **Offer this swap**. The owner sees it
-under **Swap offers for you** and presses ✅ Yes! or ❌ No. On a yes the two toys change
+choose which of your own toys to offer from the dropdown, and press the big pink **➕**.
+The owner sees it under **Swap offers for you** with two round buttons: green **✔** to
+swap, red **✖** to say no thanks. Your own waiting offers get a yellow **↩** to take them
+back. On a yes the two toys change
 owners immediately (no coins move at all), both toys stay listed so they can be traded on
 again, and any other offer or buy request for those two toys is tidied away. You can take
 back an offer while it's still waiting, and every finished swap is listed at the bottom of
@@ -117,6 +122,44 @@ ones:
 
 Deshna's own admin account can't be paused or removed, so you can never lock yourself out.
 A paused friend is greyed out in the list and counted in the **Paused** box at the top.
+
+### Did the toy actually arrive? 📦
+Coins move when the seller says **✅ Yes!**, but the real toy travels later — so the buyer
+has the last word. Every paid-for toy waits in **📦 Toys on their way** on your **My Stuff**
+page (with a red count on the 🎒 tab) until you press one of two buttons:
+
+- **Got it! ✅** — the trade is finished. **The toy's record is then deleted from the
+  database**, which is what stops old toys piling up. The trade itself keeps the name, the
+  photo and the price, so your history still shows everything.
+- **Didn't get it ❌** — your coins come straight back, the toy goes back on your friend's
+  shelf as available, and the trade is marked *"Never arrived — coins returned 🔄"*. A
+  seller who has already spent the coins simply lands on 🪙 0.
+
+Because delivered toys are deleted, "toys posted" is kept as a `posted` count on each
+account instead of by counting toy records — so completing a trade never costs you
+leaderboard places, level progress or a buy. Taking a toy down yourself (or Deshna removing
+it) *does* un-count it.
+
+> Trades made before this feature existed show up as waiting, so you can confirm them and
+> let the old toy records be tidied away.
+
+### Who's online 🟢
+Each open page quietly says *"still here"* every 90 seconds. A friend counts as **online**
+while that note is under 3 minutes old, so a green dot appears next to them on the
+**Friends** page, the **Leaderboard** (rankings and podium) and the admin list, with
+"Online now", "5 minutes ago" or "Yesterday" beside it. Closing the tab needs no goodbye
+message — the note simply goes stale and the dot turns grey on everyone's screen within a
+minute. Logging out marks you offline immediately.
+
+### Finding a toy 🔍
+Both the **Marketplace** and the **Trading Board** show **10 toys to a page, newest first**,
+with **◀ Back / Next ▶** and a "Page 2 of 4 · 37 toys" label underneath. The search box above
+the grid looks at the toy's name, its category, its description *and* whose toy it is, so
+typing `aria`, `lego` or `soft toys` all work. Searching (or switching the New/Used filter)
+jumps back to page 1, and if the page you're on disappears — someone bought the last toy on
+it — you're moved to the last page that still exists instead of staring at an empty grid.
+
+Change `PAGE_SIZE` at the top of [`js/app.js`](js/app.js) to show more or fewer per page.
 
 ### Friends & chat 💬
 The 💬 **Friends** tab lists everyone in the club with their flag, badge and coins. Press
@@ -264,6 +307,16 @@ the club grows:
   browser before it's saved — 560px / ~250 KB for toys, 240px for profile pictures.
 - **Coin gifts aren't downloaded.** The `transfers` record is written but never drawn, so
   the site doesn't listen to that collection at all — one less full download per page.
+- **The browser keeps its own copy.** Firestore's offline cache is switched on, so the
+  second visit draws from the device immediately and only asks the cloud for what changed
+  since. It also survives a wobbly signal.
+- **You only download your own chat.** Two small queries (`to == me`, `from == me`) instead
+  of the whole postbox, so other people's conversations never touch your device.
+- **Delivered toys are deleted** (see the hand-over section), so the `items` collection
+  stays small no matter how many trades happen.
+- **The top bar redraws only when it changes** — it carries your photo and was being
+  rebuilt after every single change in the cloud.
+- **Fewer fonts.** Only the four weights the site actually uses are downloaded.
 
 ## Setting up your Firebase database (do this once)
 

@@ -47,6 +47,13 @@ import {
   itemImage,
   describeError,
   buyAllowance,
+  startPresence,
+  lastSeenText,
+  presenceDot,
+  toCollect,
+  confirmReceipt,
+  refundPurchase,
+  txnStatus,
   isChatReady,
   CHAT_OFF_MSG,
   chatWith,
@@ -103,6 +110,55 @@ function setHtml(el, html) {
 // computers can refresh what's on screen.
 let _redraw = null;
 
+/* ---------- toy lists: search, newest first, 10 to a page ---------- */
+const PAGE_SIZE = 10;
+
+// Wait until the typing stops before redrawing the whole grid.
+function debounce(fn, ms) {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), ms);
+  };
+}
+
+// One search box searches the toy's name, its category, what it says about
+// itself, and whose toy it is.
+function toyMatches(item, query) {
+  if (!query) return true;
+  return `${item.name} ${item.category} ${item.description} ${item.owner}`.toLowerCase().includes(query);
+}
+
+// Newest toy first, then cut the list into pages of ten.
+function toyPage(list, query, page) {
+  const found = list
+    .filter((i) => toyMatches(i, query))
+    .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+  const pages = Math.max(1, Math.ceil(found.length / PAGE_SIZE));
+  const safePage = Math.min(Math.max(page, 1), pages); // a page can vanish when a toy sells
+  return {
+    shown: found.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
+    page: safePage,
+    pages,
+    total: found.length,
+  };
+}
+
+// ◀ Back · Page 2 of 4 · Next ▶ — hidden when everything fits on one page.
+function drawPager(el, info, go) {
+  if (!el) return;
+  const html =
+    info.pages > 1
+      ? `<button class="btn small ghost pg-back"${info.page === 1 ? " disabled" : ""}>◀ Back</button>
+         <span class="pager-now">Page <b>${info.page}</b> of ${info.pages} · ${info.total} toys</span>
+         <button class="btn small ghost pg-next"${info.page === info.pages ? " disabled" : ""}>Next ▶</button>`
+      : "";
+  if (!setHtml(el, html) || !html) return;
+
+  el.querySelector(".pg-back").addEventListener("click", () => go(info.page - 1));
+  el.querySelector(".pg-next").addEventListener("click", () => go(info.page + 1));
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   const page = document.body.dataset.page;
   const yearEl = document.getElementById("year");
@@ -141,6 +197,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
   hideOverlay();
+
+  // Tell everyone I'm here, and keep saying it while the tab is open.
+  startPresence();
+  // Nobody writes anything when a friend simply closes their laptop, so the
+  // page checks the clock now and then to let them fade to offline.
+  setInterval(() => {
+    renderNav(page);
+    if (_redraw) _redraw();
+  }, 45000);
 
   renderNav(page);
 
@@ -274,6 +339,8 @@ function initMarket() {
   if (!requireAuth()) return;
   const me = currentUser();
   let activeCond = "All";
+  let query = "";
+  let page = 1;
 
   const filtersEl = document.getElementById("condFilters");
   if (filtersEl) {
@@ -283,6 +350,7 @@ function initMarket() {
       b.textContent = c === "All" ? "All" : c[0].toUpperCase() + c.slice(1);
       b.addEventListener("click", () => {
         activeCond = c;
+        page = 1; // a new filter always starts at the first page
         filtersEl.querySelectorAll(".chip").forEach((x) => x.classList.remove("active"));
         b.classList.add("active");
         draw();
@@ -290,6 +358,17 @@ function initMarket() {
       filtersEl.appendChild(b);
     });
   }
+
+  const searchEl = document.getElementById("marketSearch");
+  if (searchEl)
+    searchEl.addEventListener(
+      "input",
+      debounce(() => {
+        query = searchEl.value.trim().toLowerCase();
+        page = 1;
+        draw();
+      }, 200)
+    );
 
   // "You can buy 2 more toys" — the one-in, one-out rule, in plain words,
   // plus a reminder of whose toys you're allowed to see.
@@ -324,16 +403,27 @@ function initMarket() {
     let list = getMarketItems(me.username);
     if (activeCond !== "All") list = list.filter((i) => i.condition === activeCond);
 
-    if (!list.length) {
+    // Newest toys first, ten to a page.
+    const info = toyPage(list, query, page);
+    page = info.page;
+    drawPager(document.getElementById("marketPager"), info, (p) => {
+      page = p;
+      draw();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+
+    if (!info.shown.length) {
       setHtml(
         grid,
-        `<div class="empty">No toys up for trade right now 🧸<br/>
+        query
+          ? `<div class="empty">No toys match “${escapeHtml(query)}” 🔍<br/>Try another word!</div>`
+          : `<div class="empty">No toys up for trade right now 🧸<br/>
         Ask your friends to list some, or <a href="mytoys.html" style="color:var(--rose)">list your own</a>!</div>`
       );
       return;
     }
 
-    const html = list
+    const html = info.shown
       .map((i) => {
         const asked = hasPendingRequest(i.id, me.username);
         const canAfford = fresh.balance >= i.price;
@@ -392,6 +482,19 @@ function initMarket() {
 function initTrade() {
   if (!requireAuth()) return;
   const me = currentUser();
+  let query = "";
+  let page = 1;
+
+  const searchEl = document.getElementById("tradeSearch");
+  if (searchEl)
+    searchEl.addEventListener(
+      "input",
+      debounce(() => {
+        query = searchEl.value.trim().toLowerCase();
+        page = 1;
+        drawBoard();
+      }, 200)
+    );
 
   // A little "my toy 🔄 their toy" strip used in every offer row.
   function pairRow(giveImg, giveName, getImg, getName, title, sub, buttons) {
@@ -418,7 +521,7 @@ function initTrade() {
     panel.style.display = offers.length ? "block" : "none";
     if (!offers.length) return;
 
-    wrap.innerHTML = offers
+    const html = offers
       .map((s) =>
         pairRow(
           itemImage(s.giveId, s.giveImage),
@@ -427,11 +530,12 @@ function initTrade() {
           s.getName,
           `${escapeHtml(s.from)} wants to swap`,
           `Their <b>${escapeHtml(s.giveName)}</b> for your <b>${escapeHtml(s.getName)}</b>`,
-          `<button class="btn small swap-yes" data-id="${s.id}">✅ Yes!</button>
-           <button class="btn small ghost swap-no" data-id="${s.id}">❌ No</button>`
+          `<button class="icon-btn yes swap-yes" data-id="${s.id}" title="Yes, swap them!" aria-label="Yes, swap them">✔</button>
+           <button class="icon-btn no swap-no" data-id="${s.id}" title="No thanks" aria-label="No thanks">✖</button>`
         )
       )
       .join("");
+    if (!setHtml(wrap, html)) return;
 
     wrap.querySelectorAll(".swap-yes").forEach((b) =>
       b.addEventListener("click", () =>
@@ -464,7 +568,7 @@ function initTrade() {
       declined: `<span class="status sold">Said no ❌</span>`,
       cancelled: `<span class="status sold">You took it back</span>`,
     };
-    wrap.innerHTML = mine
+    const html = mine
       .map((s) =>
         pairRow(
           itemImage(s.giveId, s.giveImage),
@@ -474,11 +578,12 @@ function initTrade() {
           `You asked ${escapeHtml(s.to)}`,
           `Your <b>${escapeHtml(s.giveName)}</b> for their <b>${escapeHtml(s.getName)}</b><br/>${labels[s.status] || s.status}`,
           s.status === "pending"
-            ? `<button class="btn small ghost swap-cancel" data-id="${s.id}">Take back</button>`
+            ? `<button class="icon-btn undo swap-cancel" data-id="${s.id}" title="Take this offer back" aria-label="Take this offer back">↩</button>`
             : ""
         )
       )
       .join("");
+    if (!setHtml(wrap, html)) return;
 
     wrap.querySelectorAll(".swap-cancel").forEach((b) =>
       b.addEventListener("click", () =>
@@ -507,16 +612,27 @@ function initTrade() {
          ${mine.flag} <b>${escapeHtml(mine.name)}</b>.`
       : `🌍 You don't have a country yet, so you can swap with everyone. Ask Deshna to pick yours!`;
 
-    if (!theirs.length) {
+    // Newest toys first, ten to a page.
+    const info = toyPage(theirs, query, page);
+    page = info.page;
+    drawPager(document.getElementById("tradePager"), info, (p) => {
+      page = p;
+      drawBoard();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+
+    if (!info.shown.length) {
       setHtml(
         grid,
-        `<div class="empty">No toys to swap for right now 🧸<br/>
+        query
+          ? `<div class="empty">No toys match “${escapeHtml(query)}” 🔍<br/>Try another word!</div>`
+          : `<div class="empty">No toys to swap for right now 🧸<br/>
         Ask your friends to list some in <a href="mytoys.html" style="color:var(--rose)">My Toys</a>!</div>`
       );
       return;
     }
 
-    const html = theirs
+    const html = info.shown
       .map((i) => {
         const options = myToys
           .map(
@@ -528,8 +644,12 @@ function initTrade() {
           .join("");
         const picker = myToys.length
           ? `<div class="swap-pick">
-               <select class="give-pick" data-get="${i.id}" aria-label="Which of your toys?">${options}</select>
-               <button class="btn small offer-btn" data-get="${i.id}">Offer this swap 🔄</button>
+               <div class="swap-pick-row">
+                 <select class="give-pick" data-get="${i.id}" aria-label="Which of your toys?">${options}</select>
+                 <button class="icon-btn add offer-btn" data-get="${i.id}"
+                         title="Offer this swap" aria-label="Offer this swap">➕</button>
+               </div>
+               <small class="swap-hint">Pick your toy, then press ➕ to offer the swap</small>
              </div>`
           : `<div class="swap-pick"><button class="btn small ghost" disabled>List a toy first 🧸</button></div>`;
 
@@ -575,7 +695,7 @@ function initTrade() {
     panel.style.display = done.length ? "block" : "none";
     if (!done.length) return;
 
-    wrap.innerHTML = done
+    const html = done
       .map((s) => {
         const iGave = s.from === me.username ? s.giveName : s.getName;
         const iGot = s.from === me.username ? s.getName : s.giveName;
@@ -591,6 +711,7 @@ function initTrade() {
         );
       })
       .join("");
+    setHtml(wrap, html);
   }
 
   function drawAll() {
@@ -690,10 +811,10 @@ function initMyToys() {
     const wrap = document.getElementById("myList");
     const mine = getItemsByOwner(me.username).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     if (!mine.length) {
-      wrap.innerHTML = `<p class="hint">You haven't listed any toys yet. Add your first bored toy above! 🧸</p>`;
+      setHtml(wrap, `<p class="hint">You haven't listed any toys yet. Add your first bored toy above! 🧸</p>`);
       return;
     }
-    wrap.innerHTML = mine
+    const html = mine
       .map(
         (i) => `
       <div class="mini">
@@ -730,7 +851,7 @@ function initMyToys() {
       return;
     }
     panel.style.display = "block";
-    wrap.innerHTML = reqs
+    const html = reqs
       .map(
         (r) => `
       <div class="mini request-row">
@@ -840,7 +961,7 @@ function initFriends() {
           <div class="info">
             <b>${escapeHtml(u.username)} ${countryFlag(u.username)}
               <span class="level-tag">${lv.icon} ${lv.name}</span></b>
-            <small>${coins(u.balance)} · ${lv.listed} toy(s) posted</small>
+            <small>${presenceDot(u.username)} ${escapeHtml(lastSeenText(u.username))} · ${coins(u.balance)} · ${lv.listed} toy(s) posted</small>
           </div>
           <div class="yn">
             <button class="btn small ${open ? "ghost " : ""}chat-btn" data-u="${escapeHtml(u.username)}">
@@ -995,7 +1116,7 @@ function initHistory() {
     const wrap = document.getElementById("myAsks");
     const asks = requestsByBuyer(me.username);
     if (!asks.length) {
-      wrap.innerHTML = `<p class="hint">You haven't asked for any toys yet. Go find some! 🛒</p>`;
+      setHtml(wrap, `<p class="hint">You haven't asked for any toys yet. Go find some! 🛒</p>`);
       return;
     }
     const labels = {
@@ -1003,7 +1124,7 @@ function initHistory() {
       accepted: `<span class="status available">Got it! ✅</span>`,
       declined: `<span class="status sold">Said no ❌</span>`,
     };
-    wrap.innerHTML = asks
+    const html = asks
       .map(
         (r) => `
       <div class="mini">
@@ -1016,9 +1137,64 @@ function initHistory() {
       </div>`
       )
       .join("");
+    setHtml(wrap, html);
+  }
+
+  // Toys I've paid for that haven't been handed over yet.
+  function drawCollect() {
+    const panel = document.getElementById("collectPanel");
+    const wrap = document.getElementById("collectList");
+    const waiting = toCollect(me.username);
+
+    panel.style.display = waiting.length ? "block" : "none";
+    document.getElementById("collectCount").textContent = waiting.length ? `(${waiting.length})` : "";
+    if (!waiting.length) return;
+
+    const changed = setHtml(
+      wrap,
+      waiting
+        .map(
+          (t) => `
+      <div class="mini request-row">
+        <img src="${itemImage(t.itemId, t.image)}" alt="" loading="lazy" decoding="async" onerror="this.src='images/placeholder.svg'" />
+        <div class="info">
+          <b>${escapeHtml(t.itemName)}</b>
+          <small>from <b>${escapeHtml(t.seller)}</b> ${countryFlag(t.seller)} · you paid ${coins(t.price)} · ${timeAgo(t.date)}</small>
+        </div>
+        <div class="yn">
+          <button class="btn small got-btn" data-id="${t.id}" data-name="${escapeHtml(t.itemName)}">Got it! ✅</button>
+          <button class="btn small ghost lost-btn" data-id="${t.id}" data-name="${escapeHtml(t.itemName)}">Didn't get it ❌</button>
+        </div>
+      </div>`
+        )
+        .join("")
+    );
+    if (!changed) return;
+
+    wrap.querySelectorAll(".got-btn").forEach((b) =>
+      b.addEventListener("click", () =>
+        busy(b, async () => {
+          if (!confirm(`Did ${b.dataset.name} really reach you?\n\nPress OK only once you're holding it.`)) return;
+          toast((await confirmReceipt(b.dataset.id, me.username)).msg);
+          drawEverything();
+        })
+      )
+    );
+    wrap.querySelectorAll(".lost-btn").forEach((b) =>
+      b.addEventListener("click", () =>
+        busy(b, async () => {
+          if (!confirm(`You never got "${b.dataset.name}"?\n\nYour coins come back and the toy goes back to your friend.`))
+            return;
+          toast((await refundPurchase(b.dataset.id, me.username)).msg);
+          renderNav("history");
+          drawEverything();
+        })
+      )
+    );
   }
 
   function drawEverything() {
+    drawCollect();
     drawAvatar();
     fillFriends();
     drawStats();
@@ -1091,30 +1267,37 @@ function initLeaderboard() {
 
     // Nobody has listed anything yet — be encouraging, not empty.
     if (!board.some((p) => p.listed > 0)) {
-      podium.innerHTML = "";
+      setHtml(podium, "");
       youAre.style.display = "none";
-      list.innerHTML = `<div class="empty">No toys listed yet 🧸<br/>
-        Be the very first — <a href="mytoys.html" style="color:var(--rose)">list a toy</a> and you're #1!</div>`;
+      setHtml(
+        list,
+        `<div class="empty">No toys listed yet 🧸<br/>
+        Be the very first — <a href="mytoys.html" style="color:var(--rose)">list a toy</a> and you're #1!</div>`
+      );
       return;
     }
 
     // Top three on the podium (silver, gold, bronze — gold in the middle)
     const top = board.slice(0, 3);
     const order = top.length === 3 ? [1, 0, 2] : top.length === 2 ? [1, 0] : [0];
-    podium.innerHTML = order
-      .map((idx) => {
-        const p = top[idx];
-        return `
+    setHtml(
+      podium,
+      order
+        .map((idx) => {
+          const p = top[idx];
+          const lv = levelOf(p.username);
+          return `
       <div class="podium-card place-${idx + 1}${p.username === me.username ? " is-me" : ""}">
         <div class="podium-medal">${MEDALS[idx]}</div>
         ${avatarHtml(p.username, "big")}
-        <b>${escapeHtml(p.username)} ${countryFlag(p.username)}</b>
-        <span class="level-tag">${levelOf(p.username).icon} ${levelOf(p.username).name}</span>
+        <b>${presenceDot(p.username)}${escapeHtml(p.username)} ${countryFlag(p.username)}</b>
+        <span class="level-tag">${lv.icon} ${lv.name}</span>
         <span class="podium-score">${toys(p.listed)}</span>
         <small>${p.trades} trade${p.trades === 1 ? "" : "s"} done</small>
       </div>`;
-      })
-      .join("");
+        })
+        .join("")
+    );
 
     // Where am I, and what would it take to climb one place?
     const myIndex = board.findIndex((p) => p.username === me.username);
@@ -1144,7 +1327,7 @@ function initLeaderboard() {
         <span class="rank-num">${badge}</span>
         ${avatarHtml(p.username)}
         <div class="info">
-          <b>${escapeHtml(p.username)}${p.username === me.username ? " (you)" : ""} ${countryFlag(p.username)}
+          <b>${presenceDot(p.username)}${escapeHtml(p.username)}${p.username === me.username ? " (you)" : ""} ${countryFlag(p.username)}
             <span class="level-tag" title="${lv.listed} toys posted">${lv.icon} ${lv.name}</span></b>
           <small>${p.sold} sold · ${p.bought} bought · ${p.swapped} swapped</small>
         </div>
@@ -1245,7 +1428,7 @@ function initAdmin() {
           <div class="info">
             <b>${name} ${isAdmin(u) ? "👑" : ""}
               <span class="level-tag" title="${lv.listed} toys posted">${lv.icon} ${lv.name}</span></b>
-            <small>${coins(u.balance)} · ${toys} toy(s) · joined ${timeAgo(u.joined)}</small>
+            <small>${presenceDot(u.username)} ${escapeHtml(lastSeenText(u.username))} · ${coins(u.balance)} · ${toys} toy(s)</small>
             <small class="status ${paused ? "sold" : "available"}">
               ${paused ? "Paused ⏸️ — can't log in" : "Playing ✅"}
             </small>
@@ -1446,6 +1629,11 @@ function renderTxnList(elId, list, who, label) {
     setHtml(wrap, `<p class="hint">Nothing here yet.</p>`);
     return;
   }
+  const marks = {
+    waiting: `<small class="status sold">Waiting to be handed over 📦</small>`,
+    received: `<small class="status available">Handed over ✅</small>`,
+    refunded: `<small class="status sold">Never arrived — coins returned 🔄</small>`,
+  };
   const html = list
     .map(
       (t) => `
@@ -1454,6 +1642,7 @@ function renderTxnList(elId, list, who, label) {
       <div class="info">
         <b>${escapeHtml(t.itemName)}</b>
         <small>${label} <b>${escapeHtml(t[who])}</b> · ${timeAgo(t.date)}</small>
+        ${marks[txnStatus(t)] || ""}
       </div>
       <span class="price">${coins(t.price)}</span>
     </div>`

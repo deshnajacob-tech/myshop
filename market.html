@@ -6,7 +6,7 @@
   <title>Marketplace — Friends Trading Centre</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body data-page="market">
@@ -28,8 +28,14 @@
         <p>Toys your friends are trading. Buy with coins — collect in person!</p>
       </div>
       <div class="you-are" id="buyAllowance" style="display:none"></div>
+      <div class="list-tools">
+        <span class="search-ico">🔍</span>
+        <input type="search" id="marketSearch" class="search-input" autocomplete="off"
+               placeholder="Search a toy, a friend or a category…" aria-label="Search toys" />
+      </div>
       <div class="filters" id="condFilters"></div>
       <div class="grid" id="marketGrid"></div>
+      <div class="pager" id="marketPager"></div>
     </div>
   </section>
 

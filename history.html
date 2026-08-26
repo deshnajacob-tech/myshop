@@ -6,7 +6,7 @@
   <title>History — Friends Trading Centre</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body data-page="history">
@@ -33,6 +33,16 @@
         <div class="stat"><span class="stat-label">Earned selling</span><span class="stat-val" id="statEarned">🪙 0</span></div>
         <div class="stat"><span class="stat-label">Spent buying</span><span class="stat-val" id="statSpent">🪙 0</span></div>
         <div class="stat"><span class="stat-label">Toys traded</span><span class="stat-val" id="statTraded">0</span></div>
+      </div>
+
+      <!-- Toys paid for, still to be handed over -->
+      <div class="panel request-panel" id="collectPanel" style="display:none;margin-bottom:36px">
+        <h2>📦 Toys on their way <span id="collectCount"></span></h2>
+        <p class="hint">
+          You've paid for these. When your friend actually hands the toy over, press
+          <b>Got it! ✅</b>. If they never do, press <b>Didn't get it ❌</b> and your coins come back.
+        </p>
+        <div class="admin-list" id="collectList"></div>
       </div>
 
       <!-- My profile picture -->
