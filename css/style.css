@@ -603,6 +603,19 @@ a { color: inherit; text-decoration: none; }
 }
 .podium-card .level-tag { margin: 2px 0 4px; }
 
+/* ===== For You ===== */
+.interest-picker { justify-content: flex-start; margin-bottom: 18px; }
+.interest-chip { font-family: var(--font-body); }
+.interest-chip.active::before { content: "✓ "; }
+.why-tag {
+  display: inline-block; align-self: flex-start;
+  background: linear-gradient(135deg, #fff0f7, #f3ebff);
+  border: 2px solid #f6ddec; border-radius: 999px;
+  padding: 2px 12px; margin-bottom: 8px;
+  font-size: 12px; font-weight: 700; color: var(--plum);
+}
+.grid + .section-head { margin-top: 44px; }
+
 /* ===== Online / offline dot ===== */
 .dot {
   display: inline-block; width: 10px; height: 10px; border-radius: 50%;
@@ -642,6 +655,11 @@ a { color: inherit; text-decoration: none; }
   background: #fff; color: var(--ink); border: 2px solid var(--line);
 }
 .bubble-time { display: block; font-size: 11px; opacity: .75; margin-top: 3px; font-weight: 600; }
+.chat-meter {
+  text-align: center; font-size: 12px; font-weight: 700; color: var(--muted);
+  margin: 0 0 10px;
+}
+.chat-meter.nearly-full { color: #c76a2e; }
 .chat-form { display: flex; gap: 9px; }
 .chat-form input {
   flex: 1; min-width: 0; padding: 12px 18px; border: 2px solid var(--line);

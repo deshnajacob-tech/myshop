@@ -19,6 +19,7 @@ You buy and sell with virtual coins on the site; the actual toys are handed over
   worth a **🪙 5** bonus
 - 🛒 **Marketplace** — logged-in friends see everyone *else's* available toys
 - 🔍 **Search + pages** — find a toy by name, friend or category; 10 toys a page, newest first
+- ✨ **For You** — your own page of toys, picked from what you like and what you search for
 - 🙋 **Ask to buy** — the owner says **Yes!** or **No** before any coins move
 - 🧸 **One toy in, one toy out** — you can only buy as many toys as you've listed yourself
 - 🔄 **Trading Board** — swap a toy straight for another toy, fidget-trading style (no coins)
@@ -151,6 +152,29 @@ while that note is under 3 minutes old, so a green dot appears next to them on t
 message — the note simply goes stale and the dot turns grey on everyone's screen within a
 minute. Logging out marks you offline immediately.
 
+### Your own For You page ✨
+The ✨ **For You** tab is different for every friend. It's built from two things:
+
+1. **What you say you like.** Tap the chips under *"💖 What do you like?"* — Cars, Soft Toys,
+   Fidgets, Trading Cards and so on — and press **Save my likes**. These live on your
+   account, so they follow you to any computer.
+2. **What you actually search for.** Every word you type into the Marketplace or Trading
+   Board search box is counted, and *"🔍 You keep looking for…"* shows your most-used ones as
+   chips — tap one to run that search again. **Forget my searches** wipes them.
+
+**Picked for you 🎁** scores every toy you're allowed to buy: a matching category is worth
+most, a word you search a lot comes next, and each card says *"✨ because you like Cars"* so
+it's never a mystery. **Just arrived 🆕** shows the newest toys underneath, so the page is
+never empty — even on your very first visit, before you've told it anything.
+
+The buttons are the real Marketplace ones (**Ask to buy 🙋**, *Asked ⏳*, *Need more 🪙*,
+*List a toy first 🧸*), sharing one implementation with the Marketplace so they can't drift
+apart.
+
+> Searches are counted in **your own browser**, per friend — nothing is written to the
+> database when a child types, and two kids sharing a laptop don't mix their tastes. Clear
+> your browser data (or press *Forget my searches*) and it starts fresh.
+
 ### Finding a toy 🔍
 Both the **Marketplace** and the **Trading Board** show **10 toys to a page, newest first**,
 with **◀ Back / Next ▶** and a "Page 2 of 4 · 37 toys" label underneath. The search box above
@@ -168,6 +192,11 @@ The 💬 **Friends** tab lists everyone in the club with their flag, badge and c
 number on that friend's Chat button and on the 💬 **Friends** tab itself, and the badge
 clears the moment you open the chat. A message you're half-way through typing survives a
 friend's message arriving mid-sentence.
+
+**Each chat holds 10 messages.** The box shows "6 of 10 messages" underneath, warns you when
+two are left, and when a full chat gets one more message the old ten are deleted and the
+chat starts fresh — so chats can never pile up in the database. The message box empties the
+instant you press **Send** (and puts your words back if the send fails).
 
 Chat is **not** limited by country (only toy trades are), messages are capped at 300
 characters, and removing a friend deletes their chats along with their account.
@@ -237,6 +266,7 @@ sign-up is deleted and the name is free again).
 myshop/
 ├── index.html      ← Home + login / register
 ├── market.html     ← Marketplace (buy friends' toys)
+├── foryou.html     ← Your own page: picked toys, likes, past searches
 ├── trade.html      ← Trading Board (swap toy for toy, no coins)
 ├── mytoys.html     ← List a toy + manage your listings
 ├── friends.html    ← Friends list with a chat box for each one

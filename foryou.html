@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>For You — Friends Trading Centre</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body data-page="foryou">
+  <header class="site-header">
+    <div class="container nav">
+      <a class="brand" href="index.html">
+        <span class="logo">F</span>
+        <span class="brand-text"><b>Friends Trading Centre</b><span>SWAP · TRADE · SMILE</span></span>
+      </a>
+      <nav class="nav-links" id="navLinks"></nav>
+      <div class="nav-auth" id="navAuth"></div>
+    </div>
+  </header>
+
+  <section class="section">
+    <div class="container">
+      <div class="section-head">
+        <h2>For You ✨</h2>
+        <p id="forYouIntro">Toys we think you'll love, picked from what you like and what you look for.</p>
+      </div>
+
+      <!-- What do you like? -->
+      <div class="panel" id="interestPanel" style="margin-bottom:30px">
+        <h2>💖 What do you like?</h2>
+        <p class="hint">Tap everything you're into. We'll put those toys at the top for you.</p>
+        <div class="filters interest-picker" id="interestChips"></div>
+        <div class="form-actions">
+          <button class="btn" id="saveInterests">Save my likes ✨</button>
+          <span class="hint" id="interestSaved" style="margin:0;align-self:center"></span>
+        </div>
+      </div>
+
+      <!-- Things you keep looking for -->
+      <div class="panel" id="searchPanel" style="display:none;margin-bottom:30px">
+        <h2>🔍 You keep looking for…</h2>
+        <p class="hint">Tap one to search the Marketplace for it again.</p>
+        <div class="filters" id="searchChips"></div>
+        <button class="btn small ghost" id="forgetSearch">Forget my searches</button>
+      </div>
+
+      <!-- Picked for you -->
+      <div class="section-head" style="margin-bottom:22px">
+        <h2 style="font-size:26px">Picked for you 🎁</h2>
+        <p id="pickedNote">Based on your likes and your searches.</p>
+      </div>
+      <div class="grid" id="pickedGrid"></div>
+
+      <!-- Newest toys -->
+      <div class="section-head" style="margin:44px 0 22px">
+        <h2 style="font-size:26px">Just arrived 🆕</h2>
+        <p>The newest toys your friends have put up.</p>
+      </div>
+      <div class="grid" id="freshGrid"></div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container footer-bottom">
+      © <span id="year"></span> Friends Trading Centre · Virtual coins only · Made with 💜 by Deshna
+    </div>
+  </footer>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

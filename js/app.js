@@ -47,6 +47,12 @@ import {
   itemImage,
   describeError,
   buyAllowance,
+  INTERESTS,
+  interestsOf,
+  setInterests,
+  rememberSearch,
+  forgetSearches,
+  forYou,
   startPresence,
   lastSeenText,
   presenceDot,
@@ -56,6 +62,7 @@ import {
   txnStatus,
   isChatReady,
   CHAT_OFF_MSG,
+  CHAT_LIMIT,
   chatWith,
   chatTime,
   sendMessage,
@@ -144,6 +151,39 @@ function toyPage(list, query, page) {
   };
 }
 
+// The "Ask to buy" button, in whichever of its four states applies. Shared by
+// the Marketplace and the For You page so they can never disagree.
+function askButton(item, meName, allowance, balance) {
+  if (hasPendingRequest(item.id, meName)) return `<button class="btn small ghost" disabled>Asked ⏳</button>`;
+  if (allowance.left <= 0)
+    return `<button class="btn small ghost" disabled title="You can buy one toy for every toy you list">List a toy first 🧸</button>`;
+  if (balance < item.price) return `<button class="btn small ghost" disabled>Need more 🪙</button>`;
+  return `<button class="btn small ask-btn" data-id="${item.id}">Ask to buy 🙋</button>`;
+}
+
+// One toy card. `ribbon` is the little "because you like Cars" line.
+function toyCard(item, buttonHtml, ribbon) {
+  return `
+      <article class="card">
+        <div class="card-img">
+          <img src="${item.image}" alt="${escapeHtml(item.name)}" loading="lazy" decoding="async" onerror="this.src='images/placeholder.svg'" />
+          <div class="card-badges">
+            <span class="badge ${item.condition === "new" ? "new" : "handmade"}">${item.condition}</span>
+          </div>
+        </div>
+        <div class="card-body">
+          ${ribbon || ""}
+          <span class="card-cat">${escapeHtml(item.category)} · from ${escapeHtml(item.owner)} ${countryFlag(item.owner)}</span>
+          <h3 class="card-title">${escapeHtml(item.name)}</h3>
+          <p class="card-desc">${escapeHtml(item.description) || "No description."}</p>
+          <div class="card-foot">
+            <span class="price">${coins(item.price)}</span>
+            ${buttonHtml}
+          </div>
+        </div>
+      </article>`;
+}
+
 // ◀ Back · Page 2 of 4 · Next ▶ — hidden when everything fits on one page.
 function drawPager(el, info, go) {
   if (!el) return;
@@ -211,6 +251,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (page === "home") initHome();
   if (page === "market") initMarket();
+  if (page === "foryou") initForYou();
   if (page === "trade") initTrade();
   if (page === "mytoys") initMyToys();
   if (page === "friends") initFriends();
@@ -360,15 +401,23 @@ function initMarket() {
   }
 
   const searchEl = document.getElementById("marketSearch");
-  if (searchEl)
+  if (searchEl) {
+    // Arriving from a "you keep looking for…" chip on the For You page.
+    const fromLink = new URLSearchParams(location.search).get("q");
+    if (fromLink) {
+      searchEl.value = fromLink;
+      query = fromLink.trim().toLowerCase();
+    }
     searchEl.addEventListener(
       "input",
       debounce(() => {
         query = searchEl.value.trim().toLowerCase();
+        rememberSearch(me.username, query); // feeds the For You page
         page = 1;
         draw();
       }, 200)
     );
+  }
 
   // "You can buy 2 more toys" — the one-in, one-out rule, in plain words,
   // plus a reminder of whose toys you're allowed to see.
@@ -424,38 +473,7 @@ function initMarket() {
     }
 
     const html = info.shown
-      .map((i) => {
-        const asked = hasPendingRequest(i.id, me.username);
-        const canAfford = fresh.balance >= i.price;
-        let btn;
-        if (asked) {
-          btn = `<button class="btn small ghost" disabled>Asked ⏳</button>`;
-        } else if (allowance.left <= 0) {
-          btn = `<button class="btn small ghost" disabled title="You can buy one toy for every toy you list">List a toy first 🧸</button>`;
-        } else if (!canAfford) {
-          btn = `<button class="btn small ghost" disabled>Need more 🪙</button>`;
-        } else {
-          btn = `<button class="btn small ask-btn" data-id="${i.id}">Ask to buy 🙋</button>`;
-        }
-        return `
-      <article class="card">
-        <div class="card-img">
-          <img src="${i.image}" alt="${escapeHtml(i.name)}" loading="lazy" decoding="async" onerror="this.src='images/placeholder.svg'" />
-          <div class="card-badges">
-            <span class="badge ${i.condition === "new" ? "new" : "handmade"}">${i.condition}</span>
-          </div>
-        </div>
-        <div class="card-body">
-          <span class="card-cat">${escapeHtml(i.category)} · from ${escapeHtml(i.owner)} ${countryFlag(i.owner)}</span>
-          <h3 class="card-title">${escapeHtml(i.name)}</h3>
-          <p class="card-desc">${escapeHtml(i.description) || "No description."}</p>
-          <div class="card-foot">
-            <span class="price">${coins(i.price)}</span>
-            ${btn}
-          </div>
-        </div>
-      </article>`;
-      })
+      .map((i) => toyCard(i, askButton(i, me.username, allowance, fresh.balance)))
       .join("");
 
     // Same toys as last time? Then the buttons below are already wired up.
@@ -491,6 +509,7 @@ function initTrade() {
       "input",
       debounce(() => {
         query = searchEl.value.trim().toLowerCase();
+        rememberSearch(me.username, query); // feeds the For You page
         page = 1;
         drawBoard();
       }, 200)
@@ -900,6 +919,125 @@ function initMyToys() {
 }
 
 /* ============================================================
+   FOR YOU  (picked from what you like + what you search for)
+   ============================================================ */
+function initForYou() {
+  if (!requireAuth()) return;
+  const me = currentUser();
+  let chosen = new Set(interestsOf(me.username));
+
+  /* --- the "what do you like?" chips --- */
+  const chipWrap = document.getElementById("interestChips");
+  function drawChips() {
+    setHtml(
+      chipWrap,
+      INTERESTS.map(
+        (name) =>
+          `<button type="button" class="chip interest-chip${chosen.has(name) ? " active" : ""}"
+                   data-name="${escapeHtml(name)}" aria-pressed="${chosen.has(name)}">${escapeHtml(name)}</button>`
+      ).join("")
+    );
+    chipWrap.querySelectorAll(".interest-chip").forEach((c) =>
+      c.addEventListener("click", () => {
+        const name = c.dataset.name;
+        chosen.has(name) ? chosen.delete(name) : chosen.add(name);
+        drawChips();
+        document.getElementById("interestSaved").textContent = "Press save when you're done 👉";
+      })
+    );
+  }
+
+  document.getElementById("saveInterests").addEventListener("click", (e) =>
+    busy(e.currentTarget, async () => {
+      const res = await setInterests(me.username, [...chosen]);
+      toast(res.msg);
+      document.getElementById("interestSaved").textContent = res.ok ? "Saved ✨" : "";
+      draw();
+    })
+  );
+
+  /* --- words they keep searching --- */
+  function drawSearches(searches) {
+    const panel = document.getElementById("searchPanel");
+    panel.style.display = searches.length ? "block" : "none";
+    if (!searches.length) return;
+
+    const wrap = document.getElementById("searchChips");
+    if (
+      setHtml(
+        wrap,
+        searches
+          .map(
+            (s) =>
+              `<a class="chip" href="market.html?q=${encodeURIComponent(s.term)}"
+                  title="Looked for ${s.count} time${s.count === 1 ? "" : "s"}">🔍 ${escapeHtml(s.term)}</a>`
+          )
+          .join("")
+      )
+    ) {
+      // nothing to wire — they're plain links to the Marketplace
+    }
+  }
+
+  document.getElementById("forgetSearch").addEventListener("click", () => {
+    if (!confirm("Forget the words you've searched for on this device?")) return;
+    forgetSearches(me.username);
+    toast("Forgotten. Your likes are still saved. 🧽");
+    draw();
+  });
+
+  /* --- the two grids --- */
+  function draw() {
+    const fresh = currentUser();
+    const allowance = buyAllowance(me.username);
+    const picks = forYou(me.username);
+
+    drawChips();
+    drawSearches(picks.searches);
+
+    document.getElementById("pickedNote").textContent = picks.hasTaste
+      ? "Based on your likes and the things you search for."
+      : "Tap a few things you like above, and this fills up with toys just for you!";
+
+    const pickedGrid = document.getElementById("pickedGrid");
+    const pickedHtml = picks.picked.length
+      ? picks.picked
+          .map(({ item, why }) =>
+            toyCard(
+              item,
+              askButton(item, me.username, allowance, fresh.balance),
+              why.length ? `<span class="why-tag">✨ because you like ${escapeHtml(why.join(" & "))}</span>` : ""
+            )
+          )
+          .join("")
+      : `<div class="empty">Nothing picked out yet 💭<br/>
+         Choose what you like above, or go and search for a toy you want!</div>`;
+    if (setHtml(pickedGrid, pickedHtml)) wireAsk(pickedGrid);
+
+    const freshGrid = document.getElementById("freshGrid");
+    const freshHtml = picks.fresh.length
+      ? picks.fresh.map((i) => toyCard(i, askButton(i, me.username, allowance, fresh.balance))).join("")
+      : `<div class="empty">No other toys right now 🧸</div>`;
+    if (setHtml(freshGrid, freshHtml)) wireAsk(freshGrid);
+  }
+
+  // Both grids use the same Ask-to-buy button as the Marketplace.
+  function wireAsk(grid) {
+    grid.querySelectorAll(".ask-btn").forEach((btn) =>
+      btn.addEventListener("click", () =>
+        busy(btn, async () => {
+          toast((await askToBuy(btn.dataset.id, me.username)).msg);
+          draw();
+        })
+      )
+    );
+  }
+
+  _redraw = draw;
+  draw();
+}
+
+/* ============================================================
    FRIENDS  (one chat box per friend)
    ============================================================ */
 function initFriends() {
@@ -930,9 +1068,19 @@ function initFriends() {
           .join("")
       : `<p class="hint chat-empty">No messages yet. Say hi! 👋</p>`;
 
+    const left = CHAT_LIMIT - msgs.length;
     return `
       <div class="chat-box">
         <div class="chat-log" id="chatLog">${log}</div>
+        <div class="chat-meter${left <= 2 ? " nearly-full" : ""}">
+          ${msgs.length} of ${CHAT_LIMIT} messages${
+            left <= 0
+              ? " — the next one starts a fresh chat 🧹"
+              : left <= 2
+                ? ` — ${left} left before it starts over`
+                : ""
+          }
+        </div>
         <form class="chat-form" id="chatForm">
           <input type="text" id="chatText" maxlength="300" autocomplete="off"
                  placeholder="Write to ${escapeHtml(friend)}…" aria-label="Message for ${escapeHtml(friend)}" />
@@ -1004,10 +1152,17 @@ function initFriends() {
 
       form.addEventListener("submit", (e) => {
         e.preventDefault();
+        const text = input.value;
+        // Empty the box the moment they press send — waiting for the cloud
+        // makes it feel like nothing happened.
+        input.value = "";
         busy(form.querySelector("button[type=submit]"), async () => {
-          const res = await sendMessage(me.username, openWith, input.value);
-          if (!res.ok) return toast(res.msg);
-          input.value = "";
+          const res = await sendMessage(me.username, openWith, text);
+          if (!res.ok) {
+            input.value = text; // put their words back so nothing is lost
+            return toast(res.msg);
+          }
+          if (res.restarted) toast(res.msg);
           draw();
           const next = document.getElementById("chatText");
           if (next) next.focus();
