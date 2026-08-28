@@ -951,7 +951,8 @@ function initMyToys() {
   function drawRequests() {
     const panel = document.getElementById("requestPanel");
     const wrap = document.getElementById("requestList");
-    const reqs = requestsForSeller(me.username);
+    const allReqs = requestsForSeller(me.username) || [];
+    const reqs = allReqs.filter(r => r.status === "pending");
     if (!reqs.length) {
       panel.style.display = "none";
       return;
@@ -1728,20 +1729,18 @@ function initHistory() {
     });
   });
 
-  // My asks (buy requests I made)
+  // My asks (buy requests I made) - shows only PENDING requests
   function drawAsks() {
     const wrap = document.getElementById("myAsks");
-    const asks = requestsByBuyer(me.username);
-    if (!asks.length) {
+    const allAsks = requestsByBuyer(me.username);
+    const pendingAsks = allAsks.filter(r => r.status === "pending");
+
+    if (!pendingAsks.length) {
       setHtml(wrap, `<p class="hint">You haven't asked for any toys yet. Go find some! 🛒</p>`);
       return;
     }
-    const labels = {
-      pending: `<span class="status sold">Waiting… ⏳</span>`,
-      accepted: `<span class="status available">Got it! ✅</span>`,
-      declined: `<span class="status sold">Said no ❌</span>`,
-    };
-    const html = asks
+
+    const html = pendingAsks
       .map(
         (r) => `
       <div class="mini">
@@ -1749,7 +1748,7 @@ function initHistory() {
         <div class="info">
           <b>${escapeHtml(r.itemName)}</b>
           <small>from <b>${escapeHtml(r.seller)}</b> · ${coins(r.price)}</small>
-          <small>${labels[r.status] || r.status}</small>
+          <small class="status sold">Waiting for response… ⏳</small>
         </div>
       </div>`
       )
