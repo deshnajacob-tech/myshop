@@ -911,22 +911,27 @@ function initMyToys() {
   function drawMine() {
     const wrap = document.getElementById("myList");
     const mine = getItemsByOwner(me.username).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    const allRequests = requestsForSeller(me.username);
     if (!mine.length) {
       setHtml(wrap, `<p class="hint">You haven't listed any toys yet. Add your first bored toy above! 🧸</p>`);
       return;
     }
     const html = mine
       .map(
-        (i) => `
+        (i) => {
+          const wantCount = allRequests.filter(r => r.itemId === i.id && r.status === "pending").length;
+          return `
       <div class="mini">
         <img src="${i.image}" alt="" loading="lazy" decoding="async" onerror="this.src='images/placeholder.svg'" />
         <div class="info">
           <b>${escapeHtml(i.name)}</b>
           <small>${escapeHtml(i.category)} · ${i.condition} · ${coins(i.price)}</small>
           <small class="status ${i.status}">${i.status === "sold" ? "Sold to " + escapeHtml(i.buyer) : "Available"}</small>
+          ${wantCount > 0 ? `<small class="wants-badge">👀 ${wantCount} ${wantCount === 1 ? "person wants" : "people want"} this</small>` : ""}
         </div>
         ${i.status === "available" ? `<button class="del-btn" data-id="${i.id}">Remove</button>` : `<span class="sold-tag">SOLD</span>`}
-      </div>`
+      </div>`;
+        }
       )
       .join("");
 
