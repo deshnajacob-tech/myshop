@@ -50,7 +50,6 @@ body {
     radial-gradient(circle at 50% 100%, var(--glow3), transparent 45%),
     radial-gradient(var(--dot) 1.6px, transparent 1.6px);
   background-size: auto, auto, auto, 26px 26px;
-  background-attachment: fixed;
 }
 
 h1, h2, h3 { font-family: var(--font-head); font-weight: 700; color: var(--plum); letter-spacing: .2px; }
@@ -119,6 +118,7 @@ a { color: inherit; text-decoration: none; }
   background: var(--rose); color: #fff; font-size: 11px; font-weight: 800;
   display: grid; place-items: center; line-height: 1; border: 2px solid #fff;
   animation: floaty 2.2s ease-in-out infinite;
+  will-change: transform;
 }
 .nav-toggle {
   display: none; width: 48px; height: 48px; flex-shrink: 0;
@@ -182,7 +182,7 @@ a { color: inherit; text-decoration: none; }
   display: grid; place-items: center; position: relative;
 }
 .hero-art .big-gift { font-size: 120px; }
-.floaty { animation: floaty 4s ease-in-out infinite; }
+.floaty { animation: floaty 4s ease-in-out infinite; will-change: transform; }
 @keyframes floaty { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
 @keyframes wiggle { 0%,100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
 @keyframes pop { 0% { transform: scale(.85); opacity: 0; } 60% { transform: scale(1.04); } 100% { transform: scale(1); opacity: 1; } }
@@ -256,6 +256,7 @@ a { color: inherit; text-decoration: none; }
   border: 2px solid #fff; outline: 2px solid var(--line); outline-offset: -2px;
   box-shadow: var(--shadow); transition: transform .25s, box-shadow .25s;
   display: flex; flex-direction: column;
+  will-change: transform, box-shadow;
 }
 .card:hover { transform: translateY(-7px) rotate(-1deg); box-shadow: var(--shadow-lift); }
 .card-img { position: relative; aspect-ratio: 4/3; background: var(--blush); overflow: hidden; }
