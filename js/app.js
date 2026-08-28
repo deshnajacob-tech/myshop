@@ -911,7 +911,7 @@ function initMyToys() {
   function drawMine() {
     const wrap = document.getElementById("myList");
     const mine = getItemsByOwner(me.username).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-    const allRequests = requestsForSeller(me.username);
+    const allRequests = requestsForSeller(me.username) || [];
     if (!mine.length) {
       setHtml(wrap, `<p class="hint">You haven't listed any toys yet. Add your first bored toy above! 🧸</p>`);
       return;
@@ -919,7 +919,7 @@ function initMyToys() {
     const html = mine
       .map(
         (i) => {
-          const wantCount = allRequests.filter(r => r.itemId === i.id && r.status === "pending").length;
+          const wantCount = (allRequests || []).filter(r => r.itemId === i.id && r.status === "pending").length;
           return `
       <div class="mini">
         <img src="${i.image}" alt="" loading="lazy" decoding="async" onerror="this.src='images/placeholder.svg'" />
@@ -996,8 +996,8 @@ function initMyToys() {
   }
 
   function drawStats() {
-    const mine = getItemsByOwner(me.username);
-    const allRequests = requestsForSeller(me.username);
+    const mine = getItemsByOwner(me.username) || [];
+    const allRequests = requestsForSeller(me.username) || [];
     const available = mine.filter(i => i.status === "available").length;
     const sold = mine.filter(i => i.status === "sold").length;
     const wantingCount = allRequests.filter(r => r.status === "pending").length;
