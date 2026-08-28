@@ -995,7 +995,27 @@ function initMyToys() {
     });
   }
 
+  function drawStats() {
+    const mine = getItemsByOwner(me.username);
+    const allRequests = requestsForSeller(me.username);
+    const available = mine.filter(i => i.status === "available").length;
+    const sold = mine.filter(i => i.status === "sold").length;
+    const wantingCount = allRequests.filter(r => r.status === "pending").length;
+
+    const statsPanel = document.getElementById("listingStats");
+    if (mine.length > 0) {
+      statsPanel.style.display = "grid";
+      document.getElementById("statTotalListings").textContent = mine.length;
+      document.getElementById("statAvailable").textContent = available;
+      document.getElementById("statSold").textContent = sold;
+      document.getElementById("statWanting").textContent = wantingCount;
+    } else {
+      statsPanel.style.display = "none";
+    }
+  }
+
   function drawBoth() {
+    drawStats();
     drawRequests();
     drawMine();
     drawFairNote();
