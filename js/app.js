@@ -320,6 +320,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (page === "friends") initFriends();
   if (page === "history") initHistory();
   if (page === "leaderboard") initLeaderboard();
+  if (page === "videos") initVideos();
   if (page === "admin") initAdmin();
 });
 
@@ -2109,6 +2110,139 @@ function initLeaderboard() {
 
   _redraw = draw;
   draw();
+}
+
+/* ============================================================
+   VIDEOS  (share video clips with friends)
+   ============================================================ */
+function initVideos() {
+  if (!requireAuth()) return;
+  const me = currentUser();
+  const MAX_VIDEO_SIZE = 5 * 1024 * 1024; // 5MB
+
+  // Local video storage (videos stored as data URLs in memory)
+  const videoStorage = JSON.parse(localStorage.getItem("ftcVideos") || "[]");
+
+  const videoForm = document.getElementById("videoForm");
+  const videoFile = document.getElementById("videoFile");
+  const videoPreview = document.getElementById("videoPreview");
+  let selectedVideoData = "";
+
+  videoFile.addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.size > MAX_VIDEO_SIZE) {
+      toast("Video too large (max 5MB)");
+      videoFile.value = "";
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      selectedVideoData = event.target.result;
+      const videoEl = document.createElement("video");
+      videoEl.src = selectedVideoData;
+      videoEl.style.width = "100%";
+      videoEl.style.height = "100%";
+      videoEl.style.objectFit = "contain";
+      videoEl.controls = true;
+      videoPreview.innerHTML = "";
+      videoPreview.appendChild(videoEl);
+    };
+    reader.readAsDataURL(file);
+  });
+
+  videoForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    busy(videoForm.querySelector("button[type=submit]"), async () => {
+      const title = document.getElementById("videoTitle").value.trim();
+      if (!title) return toast("Please give your video a title");
+      if (!selectedVideoData) return toast("Please select a video");
+
+      const newVideo = {
+        id: Date.now().toString(),
+        author: me.username,
+        title,
+        video: selectedVideoData,
+        date: new Date().toISOString(),
+        likes: []
+      };
+
+      videoStorage.push(newVideo);
+      localStorage.setItem("ftcVideos", JSON.stringify(videoStorage));
+
+      videoForm.reset();
+      selectedVideoData = "";
+      videoPreview.innerHTML = "<span>Video preview</span>";
+      toast("Video uploaded! 🎬");
+      drawVideos();
+    });
+  });
+
+  function drawVideos() {
+    const feed = document.getElementById("videoFeed");
+    const videos = JSON.parse(localStorage.getItem("ftcVideos") || "[]").reverse();
+
+    if (!videos.length) {
+      setHtml(feed, `<div class="empty">No videos yet 🎬<br/>Be the first to share!</div>`);
+      return;
+    }
+
+    const html = videos
+      .map(
+        (v) => {
+          const liked = v.likes && v.likes.includes(me.username);
+          return `
+      <div class="video-card">
+        <div class="video-player">
+          <video src="${v.video}" controls></video>
+        </div>
+        <div class="video-info">
+          ${avatarHtml(v.author)}
+          <div class="video-details">
+            <div class="video-title">${escapeHtml(v.title)}</div>
+            <div class="video-author">${escapeHtml(v.author)} ${countryFlag(v.author)}</div>
+            <div class="video-meta">${timeAgo(v.date)}</div>
+          </div>
+        </div>
+        <div class="video-actions">
+          <button class="video-like-btn${liked ? " liked" : ""}" data-id="${v.id}"
+                  title="${liked ? "Unlike" : "Like"}">
+            ${liked ? "❤️" : "🤍"} ${(v.likes || []).length}
+          </button>
+        </div>
+      </div>`;
+        }
+      )
+      .join("");
+
+    if (!setHtml(feed, html)) return;
+
+    feed.querySelectorAll(".video-like-btn").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        const allVideos = JSON.parse(localStorage.getItem("ftcVideos") || "[]");
+        const video = allVideos.find(v => v.id === btn.dataset.id);
+        if (!video) return;
+
+        if (!video.likes) video.likes = [];
+        const idx = video.likes.indexOf(me.username);
+        if (idx > -1) {
+          video.likes.splice(idx, 1);
+          btn.classList.remove("liked");
+        } else {
+          video.likes.push(me.username);
+          btn.classList.add("liked");
+        }
+
+        localStorage.setItem("ftcVideos", JSON.stringify(allVideos));
+        drawVideos();
+      })
+    );
+  }
+
+  _redraw = drawVideos;
+  drawVideos();
 }
 
 /* ============================================================

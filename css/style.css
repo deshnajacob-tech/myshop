@@ -668,11 +668,12 @@ a { color: inherit; text-decoration: none; }
 
 /* ===== Spin to Win game ===== */
 .spin-wheel-container {
-  position: relative; width: 300px; height: 300px; margin: 40px auto;
-  display: flex; align-items: center; justify-content: center;
+  position: relative; width: 100%; max-width: 320px; aspect-ratio: 1;
+  margin: 40px auto; display: flex; align-items: center; justify-content: center;
+  padding: 0 20px;
 }
 .spin-wheel {
-  width: 280px; height: 280px; border-radius: 50%;
+  width: 100%; aspect-ratio: 1; border-radius: 50%;
   background: conic-gradient(
     from 0deg,
     #ff9aa8 0deg 60deg,
@@ -682,17 +683,17 @@ a { color: inherit; text-decoration: none; }
     #e9d5ff 240deg 300deg,
     #fce7f3 300deg 360deg
   );
-  border: 8px solid #fff; box-shadow: 0 10px 30px rgba(160, 110, 180, 0.25);
+  border: 6px solid #fff; box-shadow: 0 8px 24px rgba(160, 110, 180, 0.22);
   display: grid; place-items: center; position: relative;
-  transition: transform 0.1s;
+  transition: transform 0.1s; will-change: transform;
 }
 .spin-wheel.spinning { animation: spin 4s ease-out; }
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(3600deg); } }
 .spin-segment {
-  position: absolute; width: 50px; height: 140px;
+  position: absolute; width: 12%; height: 35%;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  font-size: 18px; font-weight: 800; color: #fff;
-  text-shadow: 0 2px 4px rgba(0,0,0,0.2); transform-origin: 0 140px;
+  font-size: clamp(12px, 4vw, 16px); font-weight: 800; color: #fff;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.2); transform-origin: 50% 280%;
 }
 .seg-1 { transform: rotate(0deg); }
 .seg-2 { transform: rotate(60deg); }
@@ -702,9 +703,66 @@ a { color: inherit; text-decoration: none; }
 .seg-6 { transform: rotate(300deg); }
 .spin-pointer {
   position: absolute; top: 0; left: 50%; transform: translateX(-50%);
-  width: 0; height: 0; border-left: 12px solid transparent;
-  border-right: 12px solid transparent; border-top: 20px solid var(--rose);
+  width: 0; height: 0; border-left: clamp(8px, 2vw, 12px) solid transparent;
+  border-right: clamp(8px, 2vw, 12px) solid transparent; border-top: clamp(12px, 3vw, 18px) solid var(--rose);
   z-index: 10; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.2));
+}
+
+@media (max-width: 520px) {
+  .spin-wheel-container { max-width: 260px; margin: 30px auto 20px; }
+  .spin-segment { font-size: 13px; }
+}
+
+/* ===== Video Feed (TikTok style) ===== */
+.video-feed {
+  display: grid; grid-template-columns: 1fr;
+  gap: 24px; max-width: 600px; margin: 0 auto;
+}
+.video-card {
+  background: #fff; border-radius: var(--radius); overflow: hidden;
+  border: 2px solid #fff; outline: 2px solid var(--line); outline-offset: -2px;
+  box-shadow: var(--shadow); display: flex; flex-direction: column;
+  animation: pop .3s ease both;
+}
+.video-player {
+  width: 100%; aspect-ratio: 9/16; background: #000;
+  display: flex; align-items: center; justify-content: center;
+  position: relative; overflow: hidden;
+}
+.video-player video {
+  width: 100%; height: 100%; object-fit: contain;
+}
+.video-player .play-overlay {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  font-size: 60px; cursor: pointer; opacity: 0.7; transition: opacity .2s;
+}
+.video-player:hover .play-overlay { opacity: 1; }
+.video-info {
+  padding: 16px; display: flex; gap: 12px; align-items: flex-start;
+}
+.video-avatar { flex-shrink: 0; }
+.video-details { flex: 1; min-width: 0; }
+.video-title { font-family: var(--font-head); font-size: 16px; font-weight: 700;
+  color: var(--plum); margin-bottom: 4px; overflow-wrap: anywhere; }
+.video-author { font-size: 13px; color: var(--muted); font-weight: 600;
+  margin-bottom: 6px; }
+.video-meta { font-size: 12px; color: var(--muted); }
+.video-actions {
+  display: flex; gap: 8px; padding: 0 16px 16px;
+}
+.video-like-btn {
+  cursor: pointer; background: var(--blush); border: 2px solid var(--line);
+  border-radius: 999px; padding: 7px 14px; font-size: 14px; font-weight: 700;
+  font-family: var(--font-body); color: var(--ink);
+  transition: transform .15s, border-color .2s;
+}
+.video-like-btn:hover { transform: translateY(-2px); border-color: var(--rose-soft); }
+.video-like-btn.liked { border-color: var(--rose); color: var(--rose); }
+
+@media (max-width: 780px) {
+  .video-feed { gap: 18px; max-width: 100%; }
+  .video-player { aspect-ratio: 16/9; }
+  .video-info { padding: 12px; gap: 10px; }
 }
 
 /* ===== Toy Match game ===== */
