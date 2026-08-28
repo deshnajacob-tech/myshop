@@ -1311,71 +1311,79 @@ function initGame() {
 }
 
 /* ============================================================
-   SPIN TO WIN  (spin wheel, win coins — 3 paying spins a day)
+   LUCKY CARDS  (pick cards, win coins — 3 paying rounds a day)
    ============================================================ */
 function initSpin() {
   if (!requireAuth()) return;
   const me = currentUser();
-  let isSpinning = false;
+  let gameActive = false;
+  let cardsFlipped = [];
 
-  const wheel = document.getElementById("spinWheel");
-  const spinBtn = document.getElementById("sSpinBtn");
+  const cardGrid = document.getElementById("cardGrid");
+  const newBtn = document.getElementById("sNewBtn");
   const message = document.getElementById("sMessage");
 
   function updateStats() {
-    const spins = JSON.parse(sessionStorage.getItem("spinToday") || "[]");
-    const playsLeft = Math.max(0, 3 - spins.length);
+    const rounds = JSON.parse(sessionStorage.getItem("cardsToday") || "[]");
+    const playsLeft = Math.max(0, 3 - rounds.length);
     document.getElementById("sLeft").textContent = playsLeft;
-    const total = spins.reduce((s, w) => s + w, 0);
+    const total = rounds.reduce((s, w) => s + w, 0);
     document.getElementById("sTodayTotal").textContent = `🪙 ${total}`;
   }
 
-  function spin() {
-    if (isSpinning) return;
-
-    const spins = JSON.parse(sessionStorage.getItem("spinToday") || "[]");
-    const playsLeft = Math.max(0, 3 - spins.length);
+  function newRound() {
+    const rounds = JSON.parse(sessionStorage.getItem("cardsToday") || "[]");
+    const playsLeft = Math.max(0, 3 - rounds.length);
     if (playsLeft <= 0) {
-      message.innerHTML = "No more spins today! Come back tomorrow. 🌙";
+      message.innerHTML = "No more rounds today! Come back tomorrow. 🌙";
+      newBtn.disabled = true;
       return;
     }
 
-    isSpinning = true;
-    spinBtn.disabled = true;
-    message.innerHTML = "Spinning... 🎡";
+    gameActive = true;
+    cardsFlipped = [];
+    newBtn.disabled = true;
+    message.innerHTML = "Pick a card! 🎴";
 
-    const outcomes = [10, 15, 20, 25, 30, 10]; // 6 segments
-    const randomIndex = Math.floor(Math.random() * outcomes.length);
-    const winAmount = outcomes[randomIndex];
-    const rotation = randomIndex * 60 + Math.random() * 60;
-
-    wheel.classList.remove("spinning");
-    void wheel.offsetWidth; // trigger reflow
-    wheel.classList.add("spinning");
-    wheel.style.transform = `rotate(${rotation}deg)`;
-
-    setTimeout(async () => {
-      isSpinning = false;
-      spinBtn.disabled = false;
-      message.innerHTML = `🎉 You won ${coins(winAmount)}!`;
-
-      // Record the win
-      const todaySpin = JSON.parse(sessionStorage.getItem("spinToday") || "[]");
-      todaySpin.push(winAmount);
-      sessionStorage.setItem("spinToday", JSON.stringify(todaySpin));
-
-      // Award coins
-      const res = await awardGameCoins(me.username, winAmount);
-      if (res.ok) {
-        toast(res.msg);
-        renderNav("game");
-      }
-      updateStats();
-    }, 4000);
+    cardGrid.querySelectorAll(".lucky-card").forEach((card, idx) => {
+      card.classList.remove("flipped", "won");
+      card.innerHTML = "🎴";
+      card.onclick = () => pickCard(idx, card);
+    });
   }
 
-  spinBtn.addEventListener("click", spin);
+  async function pickCard(idx, cardEl) {
+    if (!gameActive || cardsFlipped.includes(idx)) return;
+
+    cardsFlipped.push(idx);
+    gameActive = false;
+    newBtn.disabled = false;
+
+    const outcomes = [10, 15, 20, 25];
+    const winAmount = outcomes[Math.floor(Math.random() * outcomes.length)];
+
+    cardEl.classList.add("flipped", "won");
+    cardEl.innerHTML = `🪙<br>${winAmount}`;
+
+    message.innerHTML = `🎉 You won ${coins(winAmount)}!`;
+
+    // Record the win
+    const todayRounds = JSON.parse(sessionStorage.getItem("cardsToday") || "[]");
+    todayRounds.push(winAmount);
+    sessionStorage.setItem("cardsToday", JSON.stringify(todayRounds));
+
+    // Award coins
+    const res = await awardGameCoins(me.username, winAmount);
+    if (res.ok) {
+      toast(res.msg);
+      renderNav("game");
+    }
+    updateStats();
+  }
+
+  newBtn.addEventListener("click", newRound);
   updateStats();
+  newRound();
 }
 
 /* ============================================================

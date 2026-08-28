@@ -58,34 +58,28 @@
         </div>
       </div>
 
-      <!-- Spin to Win Game -->
+      <!-- Lucky Cards Game -->
       <div id="spinGame" style="display:none">
         <div class="stats">
           <div class="stat"><span class="stat-label">Games left</span><span class="stat-val" id="sLeft">3</span></div>
           <div class="stat"><span class="stat-label">Today's total</span><span class="stat-val" id="sTodayTotal">🪙 0</span></div>
         </div>
 
-        <div class="you-are" id="sMessage">Click spin to try your luck! 🎡</div>
+        <div class="you-are" id="sMessage">Pick a card and see what you win! 🎴</div>
 
-        <div class="spin-wheel-container">
-          <div class="spin-wheel" id="spinWheel">
-            <div class="spin-segment seg-1">🪙<br>10</div>
-            <div class="spin-segment seg-2">🪙<br>15</div>
-            <div class="spin-segment seg-3">🪙<br>20</div>
-            <div class="spin-segment seg-4">🪙<br>25</div>
-            <div class="spin-segment seg-5">🪙<br>30</div>
-            <div class="spin-segment seg-6">🪙<br>10</div>
-          </div>
-          <div class="spin-pointer"></div>
+        <div class="card-grid" id="cardGrid">
+          <div class="lucky-card" data-card="0">🎴</div>
+          <div class="lucky-card" data-card="1">🎴</div>
+          <div class="lucky-card" data-card="2">🎴</div>
         </div>
 
-        <div class="form-actions" style="justify-content:center;margin-top:20px;gap:10px;flex-wrap:wrap">
-          <button class="btn" id="sSpinBtn" style="flex:1;min-width:160px">SPIN! 🎡</button>
+        <div class="form-actions" style="justify-content:center;margin-top:26px">
+          <button class="btn" id="sNewBtn">New Round 🔄</button>
         </div>
 
-        <div class="note" style="max-width:640px;margin:20px auto 0;text-align:center">
-          🎡 Spin the wheel and win 🪙 10-30 coins!
-          <b>3 paying spins a day</b> — after that, keep spinning for fun!
+        <div class="note" style="max-width:640px;margin:26px auto 0;text-align:center">
+          🎴 Pick a card and win coins! Each card hides 🪙 10-25 coins.
+          <b>3 rounds a day</b> — after that, play for fun!
         </div>
       </div>
 
