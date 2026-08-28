@@ -974,6 +974,8 @@ function initMyToys() {
       )
       .join("");
 
+    if (!setHtml(wrap, html)) return;
+
     wrap.querySelectorAll(".yes-btn").forEach((btn) => {
       btn.addEventListener("click", () =>
         busy(btn, async () => {
