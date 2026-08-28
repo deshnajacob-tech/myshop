@@ -1295,6 +1295,86 @@ function initGame() {
   document.getElementById("gNew").addEventListener("click", newGame);
   _redraw = tally; // someone else changing something shouldn't reshuffle the board
   newGame();
+
+  // Game tabs
+  document.querySelectorAll('.filters .chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('.filters .chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      const game = chip.dataset.game;
+      document.getElementById('matchGame').style.display = game === 'match' ? 'block' : 'none';
+      document.getElementById('spinGame').style.display = game === 'spin' ? 'block' : 'none';
+      if (game === 'spin') initSpin();
+    });
+  });
+}
+
+/* ============================================================
+   SPIN TO WIN  (spin wheel, win coins — 3 paying spins a day)
+   ============================================================ */
+function initSpin() {
+  if (!requireAuth()) return;
+  const me = currentUser();
+  let isSpinning = false;
+
+  const wheel = document.getElementById("spinWheel");
+  const spinBtn = document.getElementById("sSpinBtn");
+  const message = document.getElementById("sMessage");
+
+  function updateStats() {
+    const spins = JSON.parse(sessionStorage.getItem("spinToday") || "[]");
+    const playsLeft = Math.max(0, 3 - spins.length);
+    document.getElementById("sLeft").textContent = playsLeft;
+    const total = spins.reduce((s, w) => s + w, 0);
+    document.getElementById("sTodayTotal").textContent = `🪙 ${total}`;
+  }
+
+  function spin() {
+    if (isSpinning) return;
+
+    const spins = JSON.parse(sessionStorage.getItem("spinToday") || "[]");
+    const playsLeft = Math.max(0, 3 - spins.length);
+    if (playsLeft <= 0) {
+      message.innerHTML = "No more spins today! Come back tomorrow. 🌙";
+      return;
+    }
+
+    isSpinning = true;
+    spinBtn.disabled = true;
+    message.innerHTML = "Spinning... 🎡";
+
+    const outcomes = [10, 15, 20, 25, 30, 10]; // 6 segments
+    const randomIndex = Math.floor(Math.random() * outcomes.length);
+    const winAmount = outcomes[randomIndex];
+    const rotation = randomIndex * 60 + Math.random() * 60;
+
+    wheel.classList.remove("spinning");
+    void wheel.offsetWidth; // trigger reflow
+    wheel.classList.add("spinning");
+    wheel.style.transform = `rotate(${rotation}deg)`;
+
+    setTimeout(async () => {
+      isSpinning = false;
+      spinBtn.disabled = false;
+      message.innerHTML = `🎉 You won ${coins(winAmount)}!`;
+
+      // Record the win
+      const todaySpin = JSON.parse(sessionStorage.getItem("spinToday") || "[]");
+      todaySpin.push(winAmount);
+      sessionStorage.setItem("spinToday", JSON.stringify(todaySpin));
+
+      // Award coins
+      const res = await awardGameCoins(me.username, winAmount);
+      if (res.ok) {
+        toast(res.msg);
+        renderNav("game");
+      }
+      updateStats();
+    }, 4000);
+  }
+
+  spinBtn.addEventListener("click", spin);
+  updateStats();
 }
 
 /* ============================================================

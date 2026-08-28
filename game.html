@@ -24,30 +24,73 @@
   <section class="section">
     <div class="container">
       <div class="section-head">
-        <h2>Toy Match 🎮</h2>
-        <p>Find both of every toy to win coins. The fewer turns you take, the more you win!</p>
+        <h2>Games 🎮</h2>
+        <p>Play to win coins! You can win from 3 games a day in each game.</p>
       </div>
 
-      <div class="stats">
-        <div class="stat"><span class="stat-label">Turns</span><span class="stat-val" id="gMoves">0</span></div>
-        <div class="stat"><span class="stat-label">Pairs found</span><span class="stat-val" id="gPairs">0 / 6</span></div>
-        <div class="stat"><span class="stat-label">Games left today</span><span class="stat-val" id="gLeft">3</span></div>
-        <div class="stat"><span class="stat-label">Best win</span><span class="stat-val">🪙 6</span></div>
+      <!-- Game tabs -->
+      <div class="filters" style="justify-content:center;margin-bottom:26px">
+        <button class="chip active" data-game="match">Toy Match 🧩</button>
+        <button class="chip" data-game="spin">Spin to Win 🎡</button>
       </div>
 
-      <div class="you-are" id="gMessage">Press a card to start! 🧸</div>
+      <!-- Toy Match Game -->
+      <div id="matchGame">
+        <div class="stats">
+          <div class="stat"><span class="stat-label">Turns</span><span class="stat-val" id="gMoves">0</span></div>
+          <div class="stat"><span class="stat-label">Pairs found</span><span class="stat-val" id="gPairs">0 / 6</span></div>
+          <div class="stat"><span class="stat-label">Games left today</span><span class="stat-val" id="gLeft">3</span></div>
+          <div class="stat"><span class="stat-label">Best win</span><span class="stat-val">🪙 6</span></div>
+        </div>
 
-      <div class="memo-board" id="gBoard"></div>
+        <div class="you-are" id="gMessage">Press a card to start! 🧸</div>
 
-      <div class="form-actions" style="justify-content:center;margin-top:26px">
-        <button class="btn" id="gNew">New game 🔄</button>
-        <a class="btn ghost" href="market.html">Spend my coins 🛒</a>
+        <div class="memo-board" id="gBoard"></div>
+
+        <div class="form-actions" style="justify-content:center;margin-top:26px">
+          <button class="btn" id="gNew">New game 🔄</button>
+          <a class="btn ghost" href="market.html">Spend my coins 🛒</a>
+        </div>
+
+        <div class="note" style="max-width:640px;margin:26px auto 0;text-align:center">
+          🪙 <b>How many coins?</b> 6 for 10 turns or fewer, 5 up to 14, 4 up to 20, then 2.
+          You can win coins from <b>3 games a day</b> — after that you can still play for fun.
+        </div>
       </div>
 
-      <div class="note" style="max-width:640px;margin:26px auto 0;text-align:center">
-        🪙 <b>How many coins?</b> 6 for 10 turns or fewer, 5 up to 14, 4 up to 20, then 2.
-        You can win coins from <b>3 games a day</b> — after that you can still play for fun.
+      <!-- Spin to Win Game -->
+      <div id="spinGame" style="display:none">
+        <div class="stats">
+          <div class="stat"><span class="stat-label">Last spin</span><span class="stat-val" id="sLastWin">—</span></div>
+          <div class="stat"><span class="stat-label">Games left today</span><span class="stat-val" id="sLeft">3</span></div>
+          <div class="stat"><span class="stat-label">Today's total</span><span class="stat-val" id="sTodayTotal">🪙 0</span></div>
+        </div>
+
+        <div class="you-are" id="sMessage">Click the button to spin! 🎡</div>
+
+        <div class="spin-wheel-container">
+          <div class="spin-wheel" id="spinWheel">
+            <div class="spin-segment seg-1">🪙<br>10</div>
+            <div class="spin-segment seg-2">🪙<br>15</div>
+            <div class="spin-segment seg-3">🪙<br>20</div>
+            <div class="spin-segment seg-4">🪙<br>25</div>
+            <div class="spin-segment seg-5">🪙<br>30</div>
+            <div class="spin-segment seg-6">🪙<br>10</div>
+          </div>
+          <div class="spin-pointer"></div>
+        </div>
+
+        <div class="form-actions" style="justify-content:center;margin-top:26px">
+          <button class="btn" id="sSpinBtn">SPIN! 🎡</button>
+          <a class="btn ghost" href="market.html">Spend my coins 🛒</a>
+        </div>
+
+        <div class="note" style="max-width:640px;margin:26px auto 0;text-align:center">
+          🎡 Spin the wheel and see what you win! Each spin is 🪙 10-30 coins.
+          You can win from <b>3 spins a day</b> — after that you can still spin for fun!
+        </div>
       </div>
+
     </div>
   </section>
 
