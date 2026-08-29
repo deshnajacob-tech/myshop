@@ -919,6 +919,67 @@ a { color: inherit; text-decoration: none; }
   border-radius: 999px; margin-top: 4px; font-size: 12px !important;
 }
 
+/* ===== Shopping Cart ===== */
+.cart-icon {
+  cursor: pointer; position: relative; font-size: 24px;
+  transition: transform .2s;
+}
+.cart-icon:hover { transform: scale(1.1); }
+.cart-badge {
+  position: absolute; top: -8px; right: -8px;
+  background: var(--rose); color: #fff; font-size: 11px; font-weight: 800;
+  min-width: 20px; height: 20px; border-radius: 50%;
+  display: grid; place-items: center; border: 2px solid #fff;
+}
+.cart-modal {
+  position: fixed; inset: 0; background: rgba(53, 32, 63, .55);
+  display: none; place-items: center; z-index: 100; padding: 20px;
+}
+.cart-modal.open { display: grid; }
+.cart-panel {
+  background: #fff; border-radius: 22px; max-width: 500px; width: 100%;
+  overflow: hidden; box-shadow: 0 30px 70px rgba(0,0,0,.3);
+  display: grid; grid-template-rows: auto 1fr auto;
+}
+.cart-header {
+  padding: 20px; border-bottom: 2px solid var(--line);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.cart-header h2 { font-size: 22px; color: var(--plum); }
+.cart-close {
+  background: none; border: none; font-size: 24px; cursor: pointer;
+  color: var(--muted); transition: color .2s;
+}
+.cart-close:hover { color: var(--plum); }
+.cart-content {
+  overflow-y: auto; max-height: 400px; padding: 16px;
+}
+.cart-item {
+  display: flex; gap: 12px; padding: 12px; background: var(--blush);
+  border-radius: 12px; margin-bottom: 10px; align-items: center;
+}
+.cart-item-img { width: 50px; height: 50px; object-fit: cover; border-radius: 8px; }
+.cart-item-info { flex: 1; min-width: 0; }
+.cart-item-name { font-weight: 700; color: var(--plum); font-size: 14px; overflow-wrap: anywhere; }
+.cart-item-price { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.cart-item-remove {
+  background: none; border: none; color: #c76a2e; cursor: pointer;
+  font-weight: 700; transition: opacity .2s;
+}
+.cart-item-remove:hover { opacity: .7; }
+.cart-empty {
+  text-align: center; padding: 40px 20px; color: var(--muted);
+}
+.cart-footer {
+  padding: 16px; border-top: 2px solid var(--line);
+  display: flex; gap: 10px; flex-wrap: wrap;
+}
+.cart-total {
+  flex: 1; display: flex; align-items: center; gap: 8px;
+  font-family: var(--font-head); font-weight: 800; font-size: 18px; color: var(--rose);
+}
+.cart-checkout { flex: 1; min-width: 140px; }
+
 /* ===== Responsive ===== */
 img, canvas { max-width: 100%; }
 
