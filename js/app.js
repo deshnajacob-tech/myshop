@@ -201,7 +201,7 @@ function askButton(item, meName, allowance, balance) {
   const voucher = bestVoucher(meName);
   const price = Math.max(0, item.price - (voucher ? voucher.off : 0));
   if (balance < price) return `<button class="btn small ghost" disabled>Need more 🪙</button>`;
-  return `<button class="btn small ask-btn" data-id="${item.id}" data-owner="${escapeHtml(item.owner)}">Add 🛒</button>`;
+  return `<button class="btn small ask-btn" data-id="${item.id}">Ask to buy 🙋</button>`;
 }
 
 // 🔖 Reserve / Let it go — one held toy per friend, for a day.
@@ -563,128 +563,16 @@ function initMarket() {
     );
 
     grid.querySelectorAll(".ask-btn").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const cartData = JSON.parse(sessionStorage.getItem("marketCart") || "{}");
-        const owner = btn.dataset.owner;
-        const itemId = btn.dataset.id;
-        const item = mine.find(i => i.id === itemId);
-
-        if (!cartData[owner]) cartData[owner] = [];
-        if (!cartData[owner].find(i => i.id === itemId)) {
-          cartData[owner].push({id: itemId, name: item.name, price: item.price, owner: owner, image: item.image});
-        }
-        sessionStorage.setItem("marketCart", JSON.stringify(cartData));
-        updateCartUI();
-        toast(`${item.name} added to cart! 🛒`);
-        draw();
-      });
+      btn.addEventListener("click", () =>
+        busy(btn, async () => {
+          const res = await askToBuy(btn.dataset.id, me.username);
+          toast(res.msg);
+          draw();
+        })
+      );
     });
   }
 
-  // Cart functionality
-  const cartModal = document.getElementById("cartModal");
-  const cartBtn = document.getElementById("cartBtn");
-  const cartClose = document.getElementById("cartClose");
-  const cartItems = document.getElementById("cartItems");
-  const cartCheckout = document.getElementById("cartCheckout");
-
-  function updateCartUI() {
-    const cartData = JSON.parse(sessionStorage.getItem("marketCart") || "{}");
-    const allItems = Object.values(cartData).flat();
-    const count = allItems.length;
-    const badge = document.getElementById("cartCount");
-
-    if (count > 0) {
-      badge.textContent = count;
-      badge.style.display = "grid";
-    } else {
-      badge.style.display = "none";
-    }
-  }
-
-  cartBtn.addEventListener("click", () => {
-    const cartData = JSON.parse(sessionStorage.getItem("marketCart") || "{}");
-    const allItems = Object.values(cartData).flat();
-
-    if (allItems.length === 0) {
-      cartItems.innerHTML = `<div class="cart-empty">Your cart is empty 🛒</div>`;
-      cartCheckout.disabled = true;
-    } else {
-      let total = 0;
-      const html = Object.entries(cartData).map(([owner, items]) => {
-        const ownerTotal = items.reduce((s, i) => s + i.price, 0);
-        total += ownerTotal;
-        return `
-          <div style="margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--line)">
-            <div style="font-weight:700;color:var(--plum);margin-bottom:8px">From ${escapeHtml(owner)}</div>
-            ${items.map(i => `
-              <div class="cart-item">
-                <img class="cart-item-img" src="${i.image}" alt="" onerror="this.src='images/placeholder.svg'" />
-                <div class="cart-item-info">
-                  <div class="cart-item-name">${escapeHtml(i.name)}</div>
-                  <div class="cart-item-price">${coins(i.price)}</div>
-                </div>
-                <button class="cart-item-remove" data-id="${i.id}">Remove</button>
-              </div>
-            `).join("")}
-            <div style="font-size:13px;color:var(--muted);margin-top:8px">Subtotal: ${coins(ownerTotal)}</div>
-          </div>
-        `;
-      }).join("");
-
-      cartItems.innerHTML = html;
-      document.getElementById("cartTotal").textContent = coins(total);
-      cartCheckout.disabled = false;
-
-      cartItems.querySelectorAll(".cart-item-remove").forEach(btn => {
-        btn.addEventListener("click", () => {
-          const itemId = btn.dataset.id;
-          const cart = JSON.parse(sessionStorage.getItem("marketCart") || "{}");
-          Object.values(cart).forEach(items => {
-            const idx = items.findIndex(i => i.id === itemId);
-            if (idx > -1) items.splice(idx, 1);
-          });
-          Object.keys(cart).forEach(k => { if (cart[k].length === 0) delete cart[k]; });
-          sessionStorage.setItem("marketCart", JSON.stringify(cart));
-          updateCartUI();
-          cartBtn.click();
-        });
-      });
-    }
-
-    cartModal.classList.add("open");
-  });
-
-  cartClose.addEventListener("click", () => cartModal.classList.remove("open"));
-  cartModal.addEventListener("click", (e) => {
-    if (e.target === cartModal) cartModal.classList.remove("open");
-  });
-
-  cartCheckout.addEventListener("click", async () => {
-    const cartData = JSON.parse(sessionStorage.getItem("marketCart") || "{}");
-    let successCount = 0;
-
-    for (const [owner, items] of Object.entries(cartData)) {
-      for (const item of items) {
-        try {
-          await askToBuy(item.id, me.username);
-          successCount++;
-        } catch (err) {
-          console.error(err);
-        }
-      }
-    }
-
-    if (successCount > 0) {
-      toast(`Asked to buy ${successCount} item${successCount === 1 ? "" : "s"}! 🎉`);
-      sessionStorage.removeItem("marketCart");
-      updateCartUI();
-      cartModal.classList.remove("open");
-      draw();
-    }
-  });
-
-  updateCartUI();
   _redraw = draw;
   draw();
 }
